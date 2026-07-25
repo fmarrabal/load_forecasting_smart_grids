@@ -1,7 +1,8 @@
-# STLF V4 — MATLAB implementation
+# MATLAB implementation
 
-MATLAB port of the leak-free STLF V4 framework (see `../SMART_GRIDS_CODE_V4`
-for the reference PyTorch implementation and `../AppliedEnergy_Manuscript_v4.docx`).
+Independent MATLAB port of the leak-free causal STLF framework, verified in
+numerical parity with the reference [Python implementation](../python). See the
+[root README](../README.md) for scientific context and results.
 
 ## Requirements
 
@@ -16,7 +17,7 @@ for the reference PyTorch implementation and `../AppliedEnergy_Manuscript_v4.doc
 ## Quick start
 
 ```matlab
-cd MATLAB_CODE_V4
+cd matlab
 
 % 1. Correctness certificate (shapes, exact reconstruction, causality,
 %    ablation variants, gradient flow) — seconds:
@@ -29,8 +30,9 @@ results = main_v4('GEFCom2014', true);
 results = main_v4('GEFCom2014');
 ```
 
-Datasets are read from `../SMART_GRIDS_CODE/data/` (same CSVs as the Python
-version); adjust `cfg.data_dir` in `config_v4.m` if needed.
+Datasets are read from `../data/` (the same CSVs as the Python version — see
+[`../data/README.md`](../data/README.md)); adjust `cfg.data_dir` in
+`config_v4.m` if stored elsewhere.
 
 ## File map (→ Python reference)
 
@@ -53,12 +55,12 @@ version); adjust `cfg.data_dir` in `config_v4.m` if needed.
 
 ## Scope notes
 
-* This port covers the **proposed model, its eight single-flag ablations,
-  the SeasonalNaive floor, the causal error correction and the DM test**.
+* This port covers the **proposed model, its ten single-flag ablations,
+  the seasonal-naïve floor, the causal error correction and the DM test**.
   The extended baseline suite (ARIMA, XGBoost/LightGBM, LSTM family,
   DLinear, PatchTST) and the leakage-quantification experiment live in the
   Python release, which is the reference for the paper's Tables 3–5 and
-  Section 5.4.
+  the leakage section.
 * Known intentional deviations from PyTorch (documented in code):
   GRU weights use Glorot instead of PyTorch's uniform init; the future-
   covariate patch flattening orders (time, channel) instead of (channel,
