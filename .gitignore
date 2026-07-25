@@ -1,0 +1,38 @@
+# ─── Data (public; download into data/ per data/README.md) ───
+data/*.csv
+data/*.parquet
+data/*.paruqet
+data/*.zip
+data/**/*.zip
+data/**/*.xlsx
+!data/README.md
+
+# ─── Trained checkpoints and large result binaries ───
+models_saved/
+python/models_saved/
+*.pt
+*.pth
+results/*.pkl
+results/predictions_*.pkl
+
+# ─── Python ───
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+env/
+.ipynb_checkpoints/
+
+# ─── MATLAB ───
+*.asv
+*.mat
+slprj/
+
+# ─── Editors / OS ───
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+~$*
+*.tmp

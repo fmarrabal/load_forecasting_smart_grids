@@ -1,0 +1,12 @@
+# Normalize line endings; keep binaries intact
+* text=auto eol=lf
+*.py text eol=lf
+*.m text eol=lf
+*.md text eol=lf
+*.txt text eol=lf
+*.json text eol=lf
+*.csv text eol=lf
+*.tex text eol=lf
+*.cff text eol=lf
+*.pdf binary
+*.png binary

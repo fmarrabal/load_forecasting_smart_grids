@@ -1,0 +1,18 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+title: "Adaptive dual-stage signal decomposition and Patch Transformer–BiGRU with cross-attention for short-term load forecasting in smart grids"
+authors:
+  - family-names: "Arrabal-Campos"
+    given-names: "Francisco M."
+    affiliation: "CIAIMBITAL Research Centre, Universidad de Almería"
+    email: "fmarrabal@ual.es"
+license: MIT
+date-released: "2026-07-25"
+keywords:
+  - short-term load forecasting
+  - smart grid
+  - signal decomposition
+  - data leakage
+  - Patch Transformer
+  - cross-attention
+  - Diebold-Mariano test
