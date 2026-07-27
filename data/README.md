@@ -44,6 +44,16 @@ These are the exact files every published number was computed from:
 `temperature` is the mean of the 25 GEFCom2014 weather stations, the standard
 regional aggregate.
 
+**A note on the AEMO file.** From October 2021 the AEMO portal also publishes a
+**5-minute dispatch** series alongside the half-hourly trading-interval demand,
+and a download can easily contain both — the archived file behind the published
+numbers has 372,816 rows for exactly that reason. The two are *different
+quantities*: resampled to half-hours they disagree by about 104 MW on average.
+Both the converter and `data_utils.load_aemo` keep only the rows that fall on
+the half-hour grid, and report how many they excluded, so a 372,816-row file
+and an 87,696-row file produce the **identical** analysed series (verified
+value-for-value). The row count in the table above is the converter's output.
+
 ## What the loaders then do
 
 The loaders reindex each series to a strictly regular grid, mark which

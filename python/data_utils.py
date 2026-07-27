@@ -39,16 +39,31 @@ IMPUTE_LIMIT = 6
 # RAW LOADERS
 # ═══════════════════════════════════════════
 
-def _reindex_regular(df, freq):
+def _reindex_regular(df, freq, verbose=True):
     """Reindex to a strictly regular grid and record which timestamps carried
     a genuine observation. The boolean `observed` column ([CRITICAL-FIX,
     round-3 audit]) is later used to exclude fabricated (gap-filled) targets
     from every evaluated/trained-on window, so no synthetic value is ever
-    reported as ground truth."""
+    reported as ground truth.
+
+    [round-5 audit] Reindexing silently DISCARDS any row that does not land on
+    the grid, which is not a harmless detail: the published AEMO file mixes
+    the half-hourly TOTALDEMAND series with the 5-minute dispatch series that
+    AEMO began publishing in October 2021, and 285,120 of its 372,816 rows are
+    off-grid. Keeping only the on-grid rows is the right behaviour — the
+    half-hourly trading-interval demand is the target series, and it is
+    complete — but "right by accident, silently" is how a subtly wrong series
+    reaches a table. The discard is therefore counted and reported.
+    """
     full_idx = pd.date_range(df.index.min(), df.index.max(), freq=freq)
+    dropped = int(len(df.index.difference(full_idx)))
     df = df.reindex(full_idx)
     df.index.name = "datetime"
     df["observed"] = df["load"].notna().values     # before any gap filling
+    if dropped and verbose:
+        print(f"    [grid] dropped {dropped:,} row(s) that do not fall on the "
+              f"{freq} grid, kept {len(df):,}; "
+              f"{int(df['observed'].sum()):,} of those carry an observation")
     return df
 
 
@@ -70,8 +85,22 @@ def load_pjm():
 
 
 def load_aemo():
+    """NSW half-hourly TOTALDEMAND.
+
+    The file may also contain AEMO's 5-minute dispatch series (published from
+    October 2021), which is a DIFFERENT quantity: resampling it to half-hours
+    disagrees with the trading-interval demand by ~104 MW on average on the
+    overlapping period. Off-grid rows are therefore selected out explicitly
+    here rather than left to be dropped as a side effect of reindexing.
+    """
     fp = os.path.join(DATA_DIR, "aemo_nsw.csv")
     df = pd.read_csv(fp, parse_dates=["datetime"])
+    on_grid = (df["datetime"].dt.minute % 30 == 0) & (df["datetime"].dt.second == 0)
+    if not on_grid.all():
+        print(f"    [AEMO] {int((~on_grid).sum()):,} sub-half-hourly rows "
+              f"excluded (5-minute dispatch series), "
+              f"{int(on_grid.sum()):,} half-hourly rows kept")
+        df = df[on_grid]
     df = df.groupby("datetime", as_index=True).mean().sort_index()
     return _reindex_regular(df, "30min")
 

@@ -109,6 +109,17 @@ def build_aemo(raw, out):
         .drop_duplicates("datetime")
         .sort_values("datetime")
         .reset_index(drop=True))
+    # From October 2021 AEMO also publishes a 5-minute dispatch series in the
+    # same portal. It is a DIFFERENT quantity from the half-hourly
+    # trading-interval demand (they disagree by ~104 MW on average), so if any
+    # of it made it into the download it is excluded here rather than averaged
+    # in. data_utils.load_aemo applies the same filter, so a file containing
+    # both series and a file containing only the half-hourly one yield the
+    # identical analysed series.
+    on_grid = (res["datetime"].dt.minute % 30 == 0) & (res["datetime"].dt.second == 0)
+    if not on_grid.all():
+        print(f"       (excluded {int((~on_grid).sum()):,} sub-half-hourly rows)")
+        res = res[on_grid].reset_index(drop=True)
     dst = os.path.join(out, "aemo_nsw.csv")
     res.to_csv(dst, index=False)
     print(f"       (concatenated {len(files)} monthly files)")
