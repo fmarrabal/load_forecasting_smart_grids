@@ -1,9 +1,9 @@
 \begin{table}
-\caption{Computational cost (single model per dataset; inference = one full day-ahead forecast, batch size 1 equivalent).}
+\caption{Computational cost (single model per dataset). Inference is the wall-clock time of one day-ahead forecast amortised over the evaluation batch of 64, not a batch-1 latency measurement.}
 \label{tab:efficiency}
 \begin{tabular}{llll}
 \toprule
-Model & Parameters & Train time (s) & Inference (ms/forecast) \\
+Model & Parameters & Train time (s) & Inference (ms/forecast, amortised) \\
 \midrule
 Proposed & 254,527 & 373 & 0.45 \\
 SeasonalNaive & 0 & 0 & 0.00 \\

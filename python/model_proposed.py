@@ -450,11 +450,15 @@ def create_proposed(cfg, mp, dp, n_cov_past, n_cov_fut, **ablation_flags):
     # length in hours (round-3 audit: the key was previously never read).
     fut_patch_steps = max(1, int(round(mp["future_patch_length_hours"] * scale)))
     n_future_patches = max(1, cfg["pred_horizon"] // fut_patch_steps)
-    # [V4.2] The full-resolution covariate skip is enabled only when a strong
-    # exogenous covariate (temperature) is present: on univariate datasets the
-    # future covariates are calendar-only, where the skip merely overfits and
-    # mildly hurts (measured on PJM). Overridable via ablation_flags.
-    kw = dict(use_cov_skip=bool(cfg.get("has_temperature", False)))
+    # [V5] Whether the full-resolution covariate path is active is decided by
+    # an explicit selection rule evaluated on the VALIDATION split only
+    # (config.COV_SKIP_BY_DATASET, see select_covskip_on_val.py). An earlier
+    # version gated it on `has_temperature`, but that rule had been chosen
+    # after inspecting TEST scores — a selection-leakage channel of exactly
+    # the kind this paper argues against. The path is zero-initialised, so it
+    # is neutral at initialisation whichever way the rule falls.
+    from config import COV_SKIP_BY_DATASET
+    kw = dict(use_cov_skip=COV_SKIP_BY_DATASET.get(cfg.get("name", ""), True))
     kw.update(ablation_flags)
     return CPTB(
         input_window=cfg["input_window"], pred_horizon=cfg["pred_horizon"],

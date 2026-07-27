@@ -23,13 +23,13 @@ import torch
 # PATHS
 # ═══════════════════════════════════════════
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-REPO_DIR = os.path.dirname(BASE_DIR)
-# Datasets live in <repo>/data/ (see data/README.md for download links).
-# Override with the STLF_DATA_DIR environment variable if stored elsewhere.
-DATA_DIR = os.environ.get("STLF_DATA_DIR", os.path.join(REPO_DIR, "data"))
-RESULTS_DIR = os.path.join(REPO_DIR, "results")
-FIGURES_DIR = os.path.join(REPO_DIR, "figures")
-MODELS_DIR = os.path.join(REPO_DIR, "models_saved")
+# Reuse the V3 data directory (datasets already downloaded there).
+DATA_DIR = os.environ.get(
+    "STLF_DATA_DIR",
+    os.path.join(os.path.dirname(BASE_DIR), "SMART_GRIDS_CODE", "data"))
+RESULTS_DIR = os.path.join(BASE_DIR, "results")
+FIGURES_DIR = os.path.join(BASE_DIR, "figures")
+MODELS_DIR = os.path.join(BASE_DIR, "models_saved")
 
 for d in [RESULTS_DIR, FIGURES_DIR, MODELS_DIR]:
     os.makedirs(d, exist_ok=True)
@@ -46,6 +46,7 @@ PRIMARY_SEED = 42
 # ═══════════════════════════════════════════
 DATASETS = {
     "GEFCom2014": {
+        "name": "GEFCom2014",
         "resolution": "hourly",
         "steps_per_day": 24,
         "input_window": 168,      # 1 week
@@ -57,6 +58,7 @@ DATASETS = {
         "test_ratio": 0.15,
     },
     "PJM": {
+        "name": "PJM",
         "resolution": "hourly",
         "steps_per_day": 24,
         "input_window": 168,
@@ -68,6 +70,7 @@ DATASETS = {
         "test_ratio": 0.15,
     },
     "AEMO": {
+        "name": "AEMO",
         "resolution": "half-hourly",
         "steps_per_day": 48,
         "input_window": 336,      # 1 week of half-hours
@@ -86,6 +89,18 @@ DATASETS = {
 # Degree-day covariates (HDD/CDD around the train-median temperature) on
 # datasets with temperature; provided to ALL models equally.
 USE_DEGREE_DAYS = True
+
+# [V5] Whether the full-resolution covariate path (Section 3.7) is active on
+# each dataset. This is NOT a hand-picked design choice: it is the outcome of
+# an explicit selection rule evaluated on the VALIDATION split only —
+#     enable the path iff it lowers validation MAPE on that dataset —
+# reproduced by scripts/select_covskip_on_val.py, whose printed table is
+# copied here. Datasets absent from this map default to True.
+COV_SKIP_BY_DATASET = {
+    "GEFCom2014": True,
+    "PJM": False,
+    "AEMO": False,
+}
 
 # ═══════════════════════════════════════════
 # CAUSAL ADAPTIVE DUAL-STAGE DECOMPOSITION  [FIX-1]

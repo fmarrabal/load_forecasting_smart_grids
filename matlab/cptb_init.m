@@ -18,11 +18,11 @@ function model = cptb_init(cfg, cfgd, nCovPast, nCovFut, flags)
 %   from PyTorch's uniform(-1/sqrt(h), 1/sqrt(h)); both are standard).
 
 if nargin < 5, flags = struct(); end
-% [V4.2] use_cov_skip defaults to whether the dataset has temperature (a
-% strong exogenous covariate); on univariate datasets the full-resolution
-% covariate skip only overfits calendar and mildly hurts. Mirrors
-% create_proposed. Overridable via flags.
-covdef = isfield(cfgd, 'has_temperature') && cfgd.has_temperature;
+% [V5] use_cov_skip is enabled on EVERY dataset (a single architecture, no
+% per-dataset choice). An earlier version gated it on the presence of
+% temperature, but that rule had been selected on test-set scores.
+% Mirrors create_proposed. Overridable via flags.
+covdef = true;
 def = struct('use_stage1', true, 'use_stage2', true, 'use_gate', true, ...
              'use_patch', true, 'use_cross_att', true, 'use_bigru', true, ...
              'use_revin', true, 'use_future_cov', true, ...

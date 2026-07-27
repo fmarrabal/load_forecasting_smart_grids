@@ -22,7 +22,7 @@ from model_proposed import CPTB, create_proposed
 
 ABLATION_FLAGS = ["use_stage1", "use_stage2", "use_gate", "use_patch",
                   "use_cross_att", "use_bigru", "use_revin", "use_future_cov",
-                  "use_linear_skip"]
+                  "use_linear_skip", "use_cov_skip"]
 
 
 def _decompose(model, xl):

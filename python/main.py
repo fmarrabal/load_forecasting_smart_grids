@@ -205,8 +205,17 @@ def run_ablation(ds_name, seeds):
     the V3 confounded ablation)."""
     print(f"\n{'#' * 64}\n# ABLATION on {ds_name}\n{'#' * 64}")
     data = prepare_dataset(ds_name)
-    out = {}
-    for label, model_name, kw in ABLATION_VARIANTS:
+    out = {"_dataset": ds_name}
+    # Skip any variant that would be a no-op on this dataset: disabling a
+    # component the selection rule already leaves off would train the SAME
+    # model twice and report the gap as an ablation result (round-5 audit).
+    from config import COV_SKIP_BY_DATASET
+    variants = list(ABLATION_VARIANTS)
+    if not COV_SKIP_BY_DATASET.get(ds_name, True):
+        variants = [v for v in variants if v[1] != "Proposed_noCovSkip"]
+        print("  (skipping 'w/o covariate skip': the path is already off on "
+              f"{ds_name} under the validation-selected configuration)")
+    for label, model_name, kw in variants:
         print(f"\n  ── {label} ──")
         try:
             r = run_model_multiseed(model_name, data, seeds, **kw)

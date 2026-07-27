@@ -1,4 +1,4 @@
-Model,Parameters,Train time (s),Inference (ms/forecast)
+Model,Parameters,Train time (s),"Inference (ms/forecast, amortised)"
 Proposed,"254,527",373,0.45
 SeasonalNaive,0,0,0.00
 ARIMA,0,0,0.00

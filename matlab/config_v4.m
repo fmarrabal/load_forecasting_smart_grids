@@ -28,9 +28,9 @@ function cfg = config_v4()
 % PATHS
 % ======================================================================
 here = fileparts(mfilename('fullpath'));
-% Datasets live in <repo>/data/ (see ../data/README.md for download links).
-cfg.data_dir    = fullfile(here, '..', 'data');
-cfg.results_dir = fullfile(here, '..', 'results');
+% Reuse the V3 data directory (datasets already downloaded there).
+cfg.data_dir    = fullfile(here, '..', 'SMART_GRIDS_CODE', 'data');
+cfg.results_dir = fullfile(here, 'results');
 if ~exist(cfg.results_dir, 'dir')
     mkdir(cfg.results_dir);
 end
