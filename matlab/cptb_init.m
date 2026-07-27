@@ -18,11 +18,17 @@ function model = cptb_init(cfg, cfgd, nCovPast, nCovFut, flags)
 %   from PyTorch's uniform(-1/sqrt(h), 1/sqrt(h)); both are standard).
 
 if nargin < 5, flags = struct(); end
-% [V5] use_cov_skip is enabled on EVERY dataset (a single architecture, no
-% per-dataset choice). An earlier version gated it on the presence of
-% temperature, but that rule had been selected on test-set scores.
-% Mirrors create_proposed. Overridable via flags.
+% [V5] Whether the full-resolution covariate path is active is read from
+% cfg.cov_skip_by_dataset, which holds the outcome of a VALIDATION-only
+% selection rule (see config_v4.m). An earlier version gated it on the mere
+% presence of temperature, but that rule had itself been settled on after
+% looking at test-set scores. Mirrors create_proposed in model_proposed.py;
+% overridable per call via flags, which is how the ablation drives it.
 covdef = true;
+if isfield(cfg, 'cov_skip_by_dataset') && isfield(cfgd, 'name') && ...
+        isfield(cfg.cov_skip_by_dataset, cfgd.name)
+    covdef = cfg.cov_skip_by_dataset.(cfgd.name);
+end
 def = struct('use_stage1', true, 'use_stage2', true, 'use_gate', true, ...
              'use_patch', true, 'use_cross_att', true, 'use_bigru', true, ...
              'use_revin', true, 'use_future_cov', true, ...

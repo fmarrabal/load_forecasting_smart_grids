@@ -86,6 +86,21 @@ cfg.datasets.AEMO = struct( ...
     'test_ratio',      0.15);
 
 % ======================================================================
+% FULL-RESOLUTION COVARIATE PATH  [V5]
+%   Whether the covariate path of Section 3.7 is active on each dataset.
+%   This is NOT a hand-picked design choice: it is the outcome of an
+%   explicit selection rule evaluated on the VALIDATION split only -
+%       enable the path iff it lowers validation MAPE on that dataset -
+%   reproduced by scripts/select_covskip_on_val.py on the Python side,
+%   whose printed table is copied here and into config.py. The two ports
+%   must agree; a dataset absent from this struct defaults to true.
+% ======================================================================
+cfg.cov_skip_by_dataset = struct( ...
+    'GEFCom2014', true, ...
+    'PJM',        false, ...
+    'AEMO',       false);
+
+% ======================================================================
 % CAUSAL ADAPTIVE DUAL-STAGE DECOMPOSITION  [FIX-1]
 %   Stage 1: multi-kernel causal moving-average trend/seasonal split.
 %   Stage 2: learnable causal band-pass FIR filter bank on the HF

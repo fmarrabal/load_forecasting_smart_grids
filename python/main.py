@@ -192,8 +192,22 @@ def run_dataset(ds_name, seeds, model_list, use_ec_on_proposed=True):
             print(f"    {k:22s} {v['dm_stat']:+11.3f} {v['p_holm']:8.4f}  "
                   f"{s42:+11.3f} {sig}")
 
+    # [V5] Wall-clock stamp of the forecasts. With stride == horizon == one
+    # day every forecast is issued at the same clock time, so lead-time
+    # position and time of day are perfectly confounded; Fig. 10 needs this to
+    # show which of the two is actually driving the error.
+    idx = data["index"]
+    step_min = int((idx[1] - idx[0]).total_seconds() // 60)
+    t0 = results["Proposed"]["per_seed"][0].get("issue_idx") \
+        if "Proposed" in results else None
+    clock = None
+    if t0 is not None and len(t0):
+        hrs = {idx[int(t)].hour + idx[int(t)].minute / 60 for t in t0}
+        if len(hrs) == 1:
+            clock = {"issue_hour": hrs.pop(), "step_min": step_min}
+
     return {"results": results, "dm": dm, "dm_multiseed": dm_ms,
-            "dm_ensemble": dm_ens,
+            "dm_ensemble": dm_ens, "clock": clock,
             "data_meta": {
                 "n": len(data['load_z']), "train_end": data['train_end'],
                 "val_end": data['val_end'], "n_cov_past": data['n_cov_past'],
@@ -272,6 +286,8 @@ def save_all(all_results, ablation, tag="v4"):
             p0 = r["per_seed"][0]
             slim[ds][name] = {k: p0.get(k) for k in
                               ("y_pred", "y_true", "issue_idx", "attn")}
+        if block.get("clock"):
+            slim[ds]["_clock"] = block["clock"]     # needed by Fig. 10
     with open(os.path.join(RESULTS_DIR, f"predictions_{tag}.pkl"), "wb") as f:
         pickle.dump(slim, f)
     print(f"\nSaved: {RESULTS_DIR}/summary_{tag}.json + predictions_{tag}.pkl")
