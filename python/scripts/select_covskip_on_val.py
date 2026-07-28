@@ -23,6 +23,7 @@ Usage
 -----
     python scripts/select_covskip_on_val.py
 """
+import json
 import os
 import sys
 
@@ -31,7 +32,8 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import numpy as np
 import torch
 
-from config import DATASETS, MODEL_PARAMS, DECOMP_PARAMS, TRAIN_PARAMS
+from config import (DATASETS, MODEL_PARAMS, DECOMP_PARAMS, TRAIN_PARAMS,
+                    RESULTS_DIR)
 from data_utils import prepare_dataset, make_loaders
 from model_proposed import create_proposed
 from train_pipeline import train_model, predict, set_seed
@@ -45,7 +47,7 @@ def main():
     print("Selection rule: enable cov_skip iff it lowers VALIDATION MAPE.\n",
           flush=True)
 
-    table = {}
+    table, record = {}, {}
     for ds in ["GEFCom2014", "PJM", "AEMO"]:
         data = prepare_dataset(ds, verbose=False)
         cfg = DATASETS[ds]
@@ -75,11 +77,31 @@ def main():
                   flush=True)
         decision = row[True][0] < row[False][0]
         table[ds] = decision
+        record[ds] = {
+            "val_MAPE_with_cov_skip": {"mean": row[True][0], "std": row[True][1]},
+            "val_MAPE_without_cov_skip": {"mean": row[False][0],
+                                          "std": row[False][1]},
+            "delta_pp": row[True][0] - row[False][0],
+            "selected": bool(decision),
+        }
         print(f"  -> {ds}: cov_skip {'ENABLED' if decision else 'DISABLED'} "
               f"(val delta {row[True][0] - row[False][0]:+.3f} pp)\n",
               flush=True)
 
     print("VALIDATION-SELECTED CONFIGURATION:", table, flush=True)
+
+    # Persist the evidence. A selection rule that only prints to a terminal is
+    # not falsifiable from the release; this file is what lets a reader check
+    # that config.COV_SKIP_BY_DATASET is what the rule actually produced.
+    out = {"rule": "enable the full-resolution covariate path on a dataset iff "
+                   "it lowers mean VALIDATION MAPE on that dataset",
+           "seeds": SEEDS, "split": "validation only; the test loader is never "
+                                    "built in this script",
+           "per_dataset": record, "selected_configuration": table}
+    path = os.path.join(RESULTS_DIR, "covskip_selection.json")
+    with open(path, "w") as f:
+        json.dump(out, f, indent=2)
+    print(f"written: {path}")
     print("\nCopy the mapping above into config.COV_SKIP_BY_DATASET and re-run "
           "main.py on any dataset whose flag changed.")
 

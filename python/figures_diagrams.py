@@ -130,8 +130,8 @@ def fig1_protocol(name="Fig1_protocol_contrast"):
             "results/leakage_GEFCom2014.json not found — run "
             "`python leakage_demo.py --dataset GEFCom2014` first. The measured "
             "consequence annotated on this figure is never hardcoded.")
-    a, b = m
-    infl = (b["MAPE"] - a["MAPE"]) / b["MAPE"] * 100
+    # prefer the MATCHED contrast, which varies the protocol and nothing else
+    infl = m.get("leakage_effect_matched_pct", m["illusory_improvement_pct"])
     ax.text(0.012, 0.585, "measured consequence:  apparent accuracy gain of "
             f"+{infl:.1f} % that vanishes under a causal protocol", ha="left",
             va="center", fontsize=7.3, color=CRITICAL, fontweight="bold")

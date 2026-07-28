@@ -1,0 +1,52 @@
+{
+  "rule": "enable the full-resolution covariate path on a dataset iff it lowers mean VALIDATION MAPE on that dataset",
+  "seeds": [
+    42,
+    43,
+    44
+  ],
+  "split": "validation only; the test loader is never built in this script",
+  "per_dataset": {
+    "GEFCom2014": {
+      "val_MAPE_with_cov_skip": {
+        "mean": 4.766,
+        "std": 0.182
+      },
+      "val_MAPE_without_cov_skip": {
+        "mean": 5.091,
+        "std": 0.1
+      },
+      "delta_pp": -0.325,
+      "selected": true
+    },
+    "PJM": {
+      "val_MAPE_with_cov_skip": {
+        "mean": 3.605,
+        "std": 0.119
+      },
+      "val_MAPE_without_cov_skip": {
+        "mean": 3.421,
+        "std": 0.055
+      },
+      "delta_pp": 0.184,
+      "selected": false
+    },
+    "AEMO": {
+      "val_MAPE_with_cov_skip": {
+        "mean": 5.359,
+        "std": 0.064
+      },
+      "val_MAPE_without_cov_skip": {
+        "mean": 5.24,
+        "std": 0.063
+      },
+      "delta_pp": 0.119,
+      "selected": false
+    }
+  },
+  "selected_configuration": {
+    "GEFCom2014": true,
+    "PJM": false,
+    "AEMO": false
+  }
+}
