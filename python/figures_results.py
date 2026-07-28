@@ -1,12 +1,16 @@
 """
-Result figures for the manuscript (Fig. 3 and Figs. 5-10), rebuilt on the
+Result figures for the manuscript (Fig. 3 and Figs. 4-11), rebuilt on the
 shared publication style in figstyle.py.
 
 Every figure is generated from a result file — summary_v4.json,
-ablation_v4.json, predictions_v4.pkl or a saved checkpoint. Nothing is
-hard-coded or synthetic (the V3 release rendered its ablation chart from an
-invented dict and its error-correction histograms from np.random; that class
-of bug is structurally impossible here).
+ablation_v4.json, predictions_v4.pkl, leakage_<dataset>.json or a saved
+checkpoint — and a missing input is an exception, never a default value.
+The V3 release rendered its ablation chart from an invented dict and its
+error-correction histograms from np.random; the round-5 audit found this
+release doing a quieter version of the same thing, drawing Fig. 11 from
+literal defaults because leakage_demo.py printed its measurement without
+saving it. The rule is therefore enforced rather than intended: no figure
+function here carries fallback numbers.
 
 Run:  python figures_results.py
 """

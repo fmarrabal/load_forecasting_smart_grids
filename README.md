@@ -140,7 +140,11 @@ the once-a-day issue schedule confounds the two.
   exact reconstruction and the seasonal-naïve initialization.
 - **No fabricated ground truth**: multi-week gaps in GEFCom2014 are detected and every
   window overlapping fabricated data is excluded from training and evaluation.
-- **Every figure is generated from result files** — no hardcoded or random placeholder data.
+- **Every figure is generated from result files**, and a missing input raises rather than
+  falling back to a default. This is enforced, not merely intended: an audit of this
+  repository found Fig. 11 being drawn from literals typed into the figure code, because
+  `leakage_demo.py` printed its measurement without saving it. It now writes
+  `results/leakage_GEFCom2014.json`, and the figure reads it back.
 - **Two independent implementations** (PyTorch and MATLAB) with verified numerical parity.
 
 ## Datasets
