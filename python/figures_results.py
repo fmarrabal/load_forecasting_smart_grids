@@ -27,7 +27,7 @@ from matplotlib.lines import Line2D
 from figstyle import (apply_style, save, tidy, SURFACE, INK, INK2, MUTED, GRID,
                       AXIS, BLUE, ORANGE, AQUA, VIOLET, CRITICAL, SEQ_BLUE,
                       FILL_SOFT)
-from config import RESULTS_DIR, FIGURES_DIR, DATASETS
+from config import RESULTS_DIR, FIGURES_DIR, DATASETS, PRIMARY_SEED
 
 apply_style()
 CMAP = LinearSegmentedColormap.from_list("seq_blue", SEQ_BLUE)
@@ -181,9 +181,15 @@ def fig_forecast(preds, ds, fig_num, n_days=5, name=None):
     axe.set_xlim(0, len(t) - 1)
     axe.set_xticks(np.arange(0, len(t) + 1, H))
 
+    # [round-5 audit] the pickle stores the PRIMARY SEED only, so `overall` is
+    # a single-seed test MAPE and differs from the five-seed mean reported in
+    # the tables (e.g. 4.58 % vs 4.73 % on GEFCom2014). Saying "test-set mean"
+    # without that qualifier put two different headline errors for the same
+    # model in one paper.
     mape = np.mean(np.abs(err) / np.abs(y_true)) * 100
     ax.set_title(f"{ds} — a representative {n}-day window   ·   MAPE here "
-                 f"{mape:.2f} %, test-set mean {overall:.2f} %",
+                 f"{mape:.2f} %, seed-{PRIMARY_SEED} test mean {overall:.2f} % "
+                 f"(five-seed mean in Table)",
                  loc="left", pad=20, fontsize=8.8, fontweight="bold")
     save(fig, os.path.join(FIGURES_DIR, name or
                            f"Fig{fig_num}_forecast_{ds}"))
@@ -292,9 +298,14 @@ def fig8_ablation(ablation, name="Fig8_ablation", tol=0.05):
     fig.subplots_adjust(left=0.315, right=0.965, top=0.80, bottom=0.135)
     ypos = np.arange(len(items))[::-1]
 
+    # [round-5 audit] the "+ ..." rows ADD a stage rather than remove one, so
+    # a legend phrased purely in terms of removal mislabels them; they get
+    # their own colour and entry instead of being coloured "removing it hurts".
     def col(n, v):
         if n == "Full model":
             return ORANGE
+        if n.startswith("+ "):
+            return "#8a7fb5"          # added stage, not an ablation
         if v > full + tol:
             return CRITICAL           # removing it hurts
         if v < full - tol:
@@ -316,8 +327,8 @@ def fig8_ablation(ablation, name="Fig8_ablation", tol=0.05):
     ax.tick_params(axis="y", length=0)
     ax.set_xlim(0, max(vals) * 1.14)
     ax.set_xlabel("MAPE (%)   ·   mean ± std over five seeds")
-    ax.set_title(f"Ablation on {ds} — each row removes exactly one component",
-                 loc="left", pad=26)
+    ax.set_title(f"Ablation on {ds} — “−” removes one component, "
+                 f"“+” adds one", loc="left", pad=26)
 
     handles = [
         Line2D([], [], marker="s", ls="", ms=6, color=CRITICAL,
@@ -326,11 +337,13 @@ def fig8_ablation(ablation, name="Fig8_ablation", tol=0.05):
                label="no measurable effect"),
         Line2D([], [], marker="s", ls="", ms=6, color=BLUE,
                label="removing it helps"),
+        Line2D([], [], marker="s", ls="", ms=6, color="#8a7fb5",
+               label="added stage"),
         Line2D([], [], color=ORANGE, ls=(0, (3, 2)), lw=1.0,
                label="full model"),
     ]
     ax.legend(handles=handles, loc="lower left", bbox_to_anchor=(0, 1.005),
-              ncol=4, fontsize=6.9)
+              ncol=5, fontsize=6.6, columnspacing=1.0, handletextpad=0.4)
     save(fig, os.path.join(FIGURES_DIR, name))
 
 
@@ -387,7 +400,8 @@ def fig9_attention(preds, name="Fig9_cross_attention"):
     cb.outline.set_visible(False)
     cb.ax.tick_params(labelsize=6.3, length=0)
 
-    fig.suptitle("Cross-attention, averaged over each test set", x=0.075,
+    fig.suptitle(f"Cross-attention, averaged over each test set "
+                 f"(seed {PRIMARY_SEED})", x=0.075,
                  ha="left", y=0.965, fontsize=9.4, fontweight="bold")
     fig.text(0.075, 0.885, "P = past day-patches, F = future horizon patches "
              "(right of the divider); the split of the attention mass differs "
@@ -481,8 +495,9 @@ def fig10_leadtime(preds, name="Fig10_error_by_leadtime"):
                  "and the protocol confounds them", x=0.078, ha="left",
                  y=0.968, fontsize=9.4, fontweight="bold")
     fig.text(0.078, 0.905,
-             "Median with interquartile band over every day-ahead forecast "
-             "in the test period. One forecast per day over a one-day horizon "
+             f"Median with interquartile band over every day-ahead forecast "
+             f"in the test period (seed {PRIMARY_SEED}). One forecast per day "
+             f"over a one-day horizon "
              "makes the two panels equivalent\nre-indexings of the same "
              "numbers, so neither effect is isolated within a dataset. The "
              "break at each issue marker separates the end of one forecast "

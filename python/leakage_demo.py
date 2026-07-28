@@ -88,10 +88,21 @@ def _flat_ridge(Xtr, Ytr, Xte):
     return m.predict(Xte)
 
 
+_CEEMDAN_FALLBACKS = [0]     # windows whose sifting failed; reported, not hidden
+
+
 def _ceemdan_fixed_k(sig, K, trials, seed=42):
     """CEEMDAN truncated/padded to exactly K+1 rows (K IMFs + residual) so that
     every window yields the same feature width. The residual absorbs whatever
-    is left, so the decomposition still reconstructs the signal exactly."""
+    is left, so the decomposition still reconstructs the signal exactly.
+
+    On a short window the sifting occasionally fails to converge and PyEMD
+    returns non-finite values. Rather than let a NaN reach the regression (or
+    silently drop the window, which would change the sample between arms), the
+    signal is placed unmodified in the residual row — the identity
+    decomposition — and the occurrence is counted so the run can report how
+    often it happened.
+    """
     from PyEMD import CEEMDAN
     # parallel=False: PyEMD spawns a process pool per call, which on a
     # 168-point window costs far more than the decomposition itself (and needs
@@ -99,8 +110,15 @@ def _ceemdan_fixed_k(sig, K, trials, seed=42):
     ce = CEEMDAN(trials=trials, epsilon=0.2, parallel=False)
     ce.noise_seed(seed)
     sig = np.asarray(sig, dtype=float)
-    imfs = np.atleast_2d(ce(sig, max_imf=K))[:K]
     out = np.zeros((K + 1, len(sig)))
+    try:
+        imfs = np.atleast_2d(ce(sig, max_imf=K))[:K]
+    except Exception:
+        imfs = np.zeros((0, len(sig)))
+    if imfs.size and not np.isfinite(imfs).all():
+        imfs = np.zeros((0, len(sig)))
+    if imfs.shape[0] == 0:
+        _CEEMDAN_FALLBACKS[0] += 1
     out[:len(imfs)] = imfs
     out[K] = sig - imfs.sum(axis=0)
     return out
@@ -143,13 +161,20 @@ def protocol_C_causal_ceemdan(load, L, H, train_end, val_end, K=8,
     if verbose:
         print(f"  [C] per-window CEEMDAN (K={K}, {len(train_idx)} train / "
               f"{len(test_idx)} test windows) — this is the slow arm...")
+    _CEEMDAN_FALLBACKS[0] = 0
     def build(idxs):
         X = np.stack([_ceemdan_fixed_k(load[t - L:t], K, trials).ravel()
                       for t in idxs])
         return X, np.stack([load[t:t + H] for t in idxs])
     Xtr, Ytr = build(train_idx)
     Xte, Yte = build(test_idx)
-    return compute_metrics(Yte, _flat_ridge(Xtr, Ytr, Xte))
+    nfb = _CEEMDAN_FALLBACKS[0]
+    if nfb and verbose:
+        print(f"       ({nfb} of {len(train_idx) + len(test_idx)} windows fell "
+              f"back to the identity decomposition: sifting did not converge)")
+    m = compute_metrics(Yte, _flat_ridge(Xtr, Ytr, Xte))
+    m["_fallback_windows"] = float(nfb)
+    return m
 
 
 def protocol_B_causal(load, L, H, train_end, val_end, kernels=(12, 24, 168),

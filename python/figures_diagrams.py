@@ -289,14 +289,18 @@ def fig2_architecture(name="Fig2_architecture"):
     box(ax, x2, 0.598, wc, H3, "Full-resolution covariate path",
         "future covariates → horizon\nadditive, zero-initialised",
         fill=FILL_ORANGE, edge=ORANGE, fs=7.3, sub_fs=6.5)
-    ax.text(x2 + wc + 0.008, 0.651, "enabled\nwhere\ntemperature\nexists",
-            ha="left", va="center", fontsize=6.3, color=MUTED,
+    # [round-5 audit] this used to read "enabled where temperature exists" —
+    # the very rule §3.7 identifies as selection leakage and replaces
+    ax.text(x2 + wc + 0.008, 0.651, "enabled by\nthe validation\nrule of "
+            "Eq. (6)", ha="left", va="center", fontsize=6.3, color=MUTED,
             linespacing=1.35)
 
     box(ax, x2, 0.452, wc, H3, "Per-component linear base",
         "$W_m$: window → horizon\ninit = weekly persistence",
         fill=FILL_AQUA, edge=AQUA, fs=7.6, sub_fs=6.5)
-    arrow(ax, (x0 + w / 2, 0.414), (x2 + wc / 2, 0.452), rad=-0.24, color=AQUA)
+    # route this one UNDER the central column: bowing up made it cut through
+    # the component-pooling and cross-attention boxes
+    arrow(ax, (x0 + w * 0.86, 0.392), (x2, 0.470), rad=0.34, color=AQUA)
 
     # summation node
     cx, cy, r = x2 + wc / 2, 0.372, 0.020
