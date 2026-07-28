@@ -65,7 +65,7 @@ def preflight_dependencies(model_list, strict=True):
     return missing
 
 DL_BASELINES = ["LSTM", "BiLSTM", "GRU", "TCN", "Transformer", "CNN_LSTM",
-                "GRU_TCN_Attention", "DLinear", "PatchTST"]
+                "GRU_TCN_Attention", "DLinear", "PatchTST", "TiDE"]
 ABLATION_VARIANTS = [
     ("Full (Proposed)", "Proposed", {}),
     ("w/o Stage 1 (multi-scale split)", "Proposed_noStage1", {}),
@@ -251,10 +251,34 @@ def run_ablation(ds_name, seeds):
 
 
 def save_all(all_results, ablation, tag="v4"):
-    """Persist a compact summary (JSON) + full pickle for figures."""
-    summary = {}
+    """Persist a compact summary (JSON) + full pickle for figures.
+
+    [round-5 audit] MERGES into whatever is already on disk instead of
+    replacing it. A `--ablation-only` run has an empty all_results, so the
+    previous version wrote {"results": {}} over the file and destroyed the
+    entire multi-seed protocol; a single-dataset run silently dropped the other
+    two. Runs are additive: a dataset absent from this call keeps its stored
+    results, and ablations accumulate per dataset under "ablations".
+    """
+    sum_path = os.path.join(RESULTS_DIR, f"summary_{tag}.json")
+    prev = {}
+    if os.path.exists(sum_path):
+        try:
+            with open(sum_path) as f:
+                prev = json.load(f)
+        except Exception as e:
+            print(f"  (existing summary unreadable, starting fresh: {e})")
+    summary = dict(prev.get("results") or {})
+    ablations = dict(prev.get("ablations") or {})
+    if prev.get("ablation") and not ablations:      # migrate the old scalar
+        old = prev["ablation"]
+        ablations[old.get("_dataset", "GEFCom2014")] = old
+
     for ds, block in all_results.items():
-        summary[ds] = {}
+        # Merge at the MODEL level, not the dataset level: running a subset
+        # (e.g. --models Proposed,TiDE to add one baseline) must not delete the
+        # twelve models already measured for that dataset.
+        summary.setdefault(ds, {})
         for name, r in block["results"].items():
             summary[ds][name] = {
                 "mean": r["metrics_mean"], "std": r["metrics_std"],
@@ -271,15 +295,46 @@ def save_all(all_results, ablation, tag="v4"):
                     metrics_mean_std(ec_ms)
             if "ensemble" in r:
                 summary[ds][name]["ensemble"] = r["ensemble"]["metrics"]
-        summary[ds]["_dm"] = block["dm"]
-        summary[ds]["_dm_multiseed"] = block.get("dm_multiseed", {})
-        summary[ds]["_dm_ensemble"] = block.get("dm_ensemble", {})
+        # DM entries merge too, and the multiplicity correction is then
+        # RECOMPUTED over the enlarged family: adding a fourteenth baseline
+        # makes every stored p_holm stale, and leaving them would understate
+        # the correction the paper claims to apply.
+        for key in ("_dm", "_dm_multiseed", "_dm_ensemble"):
+            src = block.get(key.lstrip("_") if key != "_dm" else "dm") or {}
+            if key == "_dm_multiseed":
+                src = block.get("dm_multiseed", {})
+            elif key == "_dm_ensemble":
+                src = block.get("dm_ensemble", {})
+            merged = dict(summary[ds].get(key) or {})
+            merged.update(src)
+            summary[ds][key] = merged
+        for key in ("_dm_multiseed", "_dm_ensemble"):
+            fam = summary[ds].get(key) or {}
+            raw = {k: v["p_value"] for k, v in fam.items()
+                   if isinstance(v, dict) and "p_value" in v}
+            if raw:
+                for k, ph in holm_bonferroni(raw).items():
+                    fam[k]["p_holm"] = ph
+                print(f"  [{ds}] {key}: Holm recomputed over "
+                      f"{len(raw)} comparisons")
         summary[ds]["_meta"] = block.get("data_meta", {})
-    with open(os.path.join(RESULTS_DIR, f"summary_{tag}.json"), "w") as f:
-        json.dump({"results": summary, "ablation": ablation}, f, indent=2,
-                  default=float)
+    if ablation:
+        ablations[ablation.get("_dataset", "GEFCom2014")] = ablation
+    with open(sum_path, "w") as f:
+        json.dump({"results": summary, "ablations": ablations,
+                   # kept so older readers still find the primary ablation
+                   "ablation": ablations.get("GEFCom2014")
+                               or (next(iter(ablations.values()), None))},
+                  f, indent=2, default=float)
 
+    pkl_path = os.path.join(RESULTS_DIR, f"predictions_{tag}.pkl")
     slim = {}
+    if os.path.exists(pkl_path):
+        try:
+            with open(pkl_path, "rb") as f:
+                slim = pickle.load(f)
+        except Exception as e:
+            print(f"  (existing predictions unreadable, starting fresh: {e})")
     for ds, block in all_results.items():
         slim[ds] = {}
         for name, r in block["results"].items():
@@ -288,15 +343,22 @@ def save_all(all_results, ablation, tag="v4"):
                               ("y_pred", "y_true", "issue_idx", "attn")}
         if block.get("clock"):
             slim[ds]["_clock"] = block["clock"]     # needed by Fig. 10
-    with open(os.path.join(RESULTS_DIR, f"predictions_{tag}.pkl"), "wb") as f:
+    with open(pkl_path, "wb") as f:
         pickle.dump(slim, f)
-    print(f"\nSaved: {RESULTS_DIR}/summary_{tag}.json + predictions_{tag}.pkl")
+    kept = sorted(set(summary) - set(all_results))
+    print(f"\nSaved: {sum_path} + predictions_{tag}.pkl"
+          + (f"  (merged; kept stored results for {', '.join(kept)})"
+             if kept else ""))
 
 
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--dataset", default=None)
     ap.add_argument("--quick", action="store_true")
+    ap.add_argument("--models", default=None,
+                    help="comma-separated subset to run, e.g. 'Proposed,TiDE'. "
+                         "Results merge into the stored summary; models "
+                         "not listed keep their stored values.")
     ap.add_argument("--smoke", action="store_true",
                     help="tiny validation run (few epochs, 1 seed, 1 dataset)")
     ap.add_argument("--ablation-only", action="store_true")
@@ -327,6 +389,14 @@ def main():
         seeds = [PRIMARY_SEED]
         datasets = datasets[:1]
         model_list = ["Proposed", "SeasonalNaive", "DLinear"]
+
+    if args.models:
+        want = [m.strip() for m in args.models.split(",") if m.strip()]
+        unknown = [m for m in want if m not in model_list + ["Proposed"]]
+        if unknown:
+            raise SystemExit(f"unknown model(s): {unknown}")
+        model_list = want
+        print(f"running subset: {model_list}")
 
     # Preflight: abort early if a requested baseline's dependency is missing,
     # instead of silently dropping it after a multi-day run (round-3 audit).

@@ -1,0 +1,45 @@
+{
+  "dataset": "PJM",
+  "n": 20000,
+  "observed_fraction": 0.9999,
+  "input_window": 168,
+  "pred_horizon": 24,
+  "stage1_kernels": [
+    12,
+    24,
+    168
+  ],
+  "protocol_A_decompose_then_split": {
+    "MAE": 832.1622490476137,
+    "RMSE": 1152.1954844211757,
+    "MAPE": 2.582490932170596,
+    "R2": 0.9732656098486896,
+    "sMAPE": 2.576807952614377
+  },
+  "protocol_B_causal": {
+    "MAE": 1818.414381158161,
+    "RMSE": 2732.5823794510784,
+    "MAPE": 5.430795728004548,
+    "R2": 0.8496288673246217,
+    "sMAPE": 5.4075756014105645
+  },
+  "illusory_improvement_pct": 52.447282838246466,
+  "ceemdan_trials": 20,
+  "ceemdan_K": 8,
+  "protocol_A2_global_ceemdan": {
+    "MAE": 923.8383304102641,
+    "RMSE": 1245.2734490905962,
+    "MAPE": 2.9072870813356158,
+    "R2": 0.9687717677307216,
+    "sMAPE": 2.9016409800787453
+  },
+  "protocol_C_causal_ceemdan": {
+    "MAE": 1959.1414278328305,
+    "RMSE": 2836.6143191524043,
+    "MAPE": 5.916347046382488,
+    "R2": 0.8379613837784163,
+    "sMAPE": 5.904759036569972,
+    "_fallback_windows": 0.0
+  },
+  "leakage_effect_matched_pct": 50.86009900123663
+}

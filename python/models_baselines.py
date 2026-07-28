@@ -227,3 +227,82 @@ class PatchTST(nn.Module):
         feat = F.relu(self.flat(h.flatten(1)))
         out = self.head(feat, xf)
         return out * sd + mu, None
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# TiDE — Das et al. 2023, "Long-term Forecasting with TiDE: Time-series
+# Dense Encoder". Added in V6 because every other baseline here receives
+# future covariates through one shared conditioning head, so the paper could
+# claim parity of the information set but not of the fusion mechanism. TiDE
+# is covariate-NATIVE: the projected covariates enter the encoder AND are
+# re-injected per horizon step in the temporal decoder. It is therefore the
+# baseline that directly tests this paper's own central finding — that on a
+# covariate-rich series it is covariate handling, not decomposition, that
+# carries the accuracy.
+# ═══════════════════════════════════════════════════════════════════════
+
+class _ResBlock(nn.Module):
+    """TiDE's residual block: MLP + linear skip + LayerNorm."""
+
+    def __init__(self, d_in, d_hidden, d_out, dropout=0.1):
+        super().__init__()
+        self.net = nn.Sequential(nn.Linear(d_in, d_hidden), nn.ReLU(),
+                                 nn.Linear(d_hidden, d_out), nn.Dropout(dropout))
+        self.skip = nn.Linear(d_in, d_out)
+        self.norm = nn.LayerNorm(d_out)
+
+    def forward(self, x):
+        return self.norm(self.net(x) + self.skip(x))
+
+
+class TiDE(nn.Module):
+    """Encoder-decoder of dense residual blocks with per-step covariate
+    projection, a temporal decoder that re-injects the future covariate of
+    each horizon step, and a global linear residual from the lookback.
+
+    Instance normalization of the lookback matches the treatment the other
+    strong baselines and the proposed model receive, so the comparison is not
+    confounded by normalization.
+    """
+
+    def __init__(self, input_len, horizon, n_cov_past, n_cov_fut,
+                 hidden=128, r=4, n_enc=2, n_dec=2, p_dec=8, temp_hidden=64,
+                 dropout=0.1):
+        # hidden=128 puts TiDE at 428k parameters on the hourly benchmarks,
+        # inside the range of the other neural baselines (101k-611k) rather
+        # than at the 1.1M its paper's default would give here, so the
+        # comparison is about how covariates are fused and not about capacity.
+        super().__init__()
+        self.L, self.H, self.p = input_len, horizon, p_dec
+        # per-step covariate projection, shared across past and future steps
+        n_cov = max(n_cov_past, n_cov_fut)
+        self.n_cov = n_cov
+        self.feat = _ResBlock(n_cov, hidden // 4, r, dropout)
+        d_in = input_len + (input_len + horizon) * r
+        enc = [_ResBlock(d_in, hidden, hidden, dropout)]
+        enc += [_ResBlock(hidden, hidden, hidden, dropout) for _ in range(n_enc - 1)]
+        self.encoder = nn.Sequential(*enc)
+        dec = [_ResBlock(hidden, hidden, hidden, dropout) for _ in range(n_dec - 1)]
+        dec += [_ResBlock(hidden, hidden, horizon * p_dec, dropout)]
+        self.decoder = nn.Sequential(*dec)
+        self.temporal = _ResBlock(p_dec + r, temp_hidden, 1, dropout)
+        self.global_res = nn.Linear(input_len, horizon)
+
+    def _pad(self, x):
+        """Past and future covariate blocks can differ in width; the shared
+        projection needs one width, so the narrower one is zero-padded."""
+        if x.shape[-1] == self.n_cov:
+            return x
+        return F.pad(x, (0, self.n_cov - x.shape[-1]))
+
+    def forward(self, xl, xc, xf):
+        mu = xl.mean(dim=1, keepdim=True)
+        sd = xl.std(dim=1, keepdim=True) + 1e-5
+        z = (xl - mu) / sd
+        fp = self.feat(self._pad(xc))                     # (B, L, r)
+        ff = self.feat(self._pad(xf))                     # (B, H, r)
+        e = self.encoder(torch.cat([z, fp.flatten(1), ff.flatten(1)], dim=1))
+        g = self.decoder(e).view(-1, self.H, self.p)      # (B, H, p)
+        out = self.temporal(torch.cat([g, ff], dim=-1)).squeeze(-1)
+        out = out + self.global_res(z)
+        return out * sd + mu, None

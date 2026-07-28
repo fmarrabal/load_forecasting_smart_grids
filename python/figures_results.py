@@ -531,87 +531,89 @@ def read_leakage(dataset="GEFCom2014"):
 
 
 def fig11_leakage(leaky=None, honest=None, name="Fig11_leakage_effect",
-                  dataset="GEFCom2014"):
-    """Two protocol contrasts side by side.
+                  datasets=("GEFCom2014", "PJM")):
+    """One panel per benchmark on which the experiment has been run.
 
-    The MATCHED pair (A2 vs C) is the claim: the same CEEMDAN with the same
-    settings, the same feature layout and the same ridge, computed either over
-    the whole series or inside each input window. Nothing but the protocol
-    varies. The ORIGINAL pair (A vs B) is shown beside it for context; it also
-    swaps the decomposition family and the fitting scheme, so on its own it
-    only bounds the effect (round-5 audit). Both come from
+    MAPE only: it is the one metric comparable across benchmarks whose loads
+    differ by three orders of magnitude, and the MAE and RMSE effects (given in
+    the caption) are larger, so nothing is being hidden by the choice.
+
+    The MATCHED pair is the claim — the same CEEMDAN with the same settings,
+    the same feature layout and the same ridge, fitted over the whole series or
+    recomputed inside each input window, so the protocol is the only thing that
+    varies. The ORIGINAL pair beside it also swaps the decomposition family and
+    the fitting scheme, so on its own it bounds the effect rather than
+    isolating it (round-5 audit). Every value is read from
     results/leakage_<dataset>.json — never from literals.
     """
-    d = read_leakage(dataset)
-    if d is None:
+    got = [(ds, read_leakage(ds)) for ds in datasets]
+    have = [(ds, d) for ds, d in got if d is not None]
+    if not have:
         raise FileNotFoundError(
-            f"results/leakage_{dataset}.json not found — run "
-            f"`python leakage_demo.py --dataset {dataset}` first. "
+            f"no results/leakage_*.json for {list(datasets)} — run "
+            f"`python leakage_demo.py --dataset <name>` first. "
             f"Fig. 11 is never drawn from hardcoded values.")
-    if leaky is not None and honest is not None:
-        d = dict(d, protocol_A_decompose_then_split=leaky,
-                 protocol_B_causal=honest)
-    matched = "protocol_A2_global_ceemdan" in d
-    keys, units = ["MAPE", "MAE", "RMSE"], ["%", "MW", "MW"]
 
-    fig, axes = plt.subplots(1, 3, figsize=(7.2, 3.15))
-    fig.subplots_adjust(left=0.075, right=0.985, top=0.655, bottom=0.235,
-                        wspace=0.34)
-    for ax, k, u in zip(axes, keys, units):
+    fig, axes = plt.subplots(1, len(have), figsize=(7.2, 3.05),
+                             squeeze=False)
+    axes = axes[0]
+    fig.subplots_adjust(left=0.085, right=0.985, top=0.635, bottom=0.235,
+                        wspace=0.24)
+    effects = []
+    for ax, (ds, d) in zip(axes, have):
+        matched = "protocol_A2_global_ceemdan" in d
         if matched:
-            vals = [d["protocol_A2_global_ceemdan"][k],
-                    d["protocol_C_causal_ceemdan"][k],
-                    d["protocol_A_decompose_then_split"][k],
-                    d["protocol_B_causal"][k]]
+            vals = [d["protocol_A2_global_ceemdan"]["MAPE"],
+                    d["protocol_C_causal_ceemdan"]["MAPE"],
+                    d["protocol_A_decompose_then_split"]["MAPE"],
+                    d["protocol_B_causal"]["MAPE"]]
             xs = [0, 0.72, 1.85, 2.57]
-            labels = ["leaky", "causal", "leaky", "causal"]
+            effects.append((ds, d["leakage_effect_matched_pct"],
+                            d["illusory_improvement_pct"]))
         else:
-            vals = [d["protocol_A_decompose_then_split"][k],
-                    d["protocol_B_causal"][k]]
-            xs, labels = [0, 0.72], ["leaky", "causal"]
+            vals = [d["protocol_A_decompose_then_split"]["MAPE"],
+                    d["protocol_B_causal"]["MAPE"]]
+            xs = [0, 0.72]
+            effects.append((ds, None, d["illusory_improvement_pct"]))
         bars = ax.bar(xs, vals, width=0.60,
                       color=[CRITICAL, BLUE] * (len(vals) // 2), zorder=3)
-        # the context pair is drawn lighter so the matched pair reads as the claim
         if matched:
             for b in bars[2:]:
                 b.set_alpha(0.42)
         for b, v in zip(bars, vals):
             ax.text(b.get_x() + b.get_width() / 2, v, f"{v:.2f}",
-                    ha="center", va="bottom", fontsize=7.0, color=INK,
+                    ha="center", va="bottom", fontsize=7.2, color=INK,
                     fontweight="bold")
         ax.set_xticks(xs)
-        ax.set_xticklabels(labels, fontsize=7.0)
+        ax.set_xticklabels(["leaky", "causal"] * (len(vals) // 2), fontsize=7.0)
         tidy(ax)
         ax.set_xlim(-0.55, xs[-1] + 0.55)
-        ax.set_ylim(0, max(vals) * 1.24)
-        ax.set_title(f"{k}  [{u}]", loc="left", fontsize=8.4, pad=4)
+        ax.set_ylim(0, max(vals) * 1.26)
+        ax.set_ylabel("MAPE (%)" if ax is axes[0] else "")
         ax.tick_params(axis="x", length=0)
+        eff = d.get("leakage_effect_matched_pct", d["illusory_improvement_pct"])
+        ax.set_title(f"{ds}   ·   protocol accounts for {eff:.1f} %",
+                     loc="left", fontsize=8.4, pad=5)
         if matched:
             for cx, txt in ((0.36, "matched"), (2.21, "original")):
                 ax.text(cx, -0.145, txt, transform=ax.get_xaxis_transform(),
                         ha="center", va="top", fontsize=6.6, color=MUTED)
 
-    pct = d["illusory_improvement_pct"]
-    head = (f"Holding everything but the protocol fixed, decompose-then-split "
-            f"reports {d['leakage_effect_matched_pct']:.1f} % lower error"
-            if matched else
-            f"The same learner and splits — only the decomposition protocol "
-            f"differs")
-    fig.suptitle(head, x=0.075, ha="left", y=0.972, fontsize=9.4,
+    lo = min(e for _, e, _ in effects if e is not None)
+    hi = max(e for _, e, _ in effects if e is not None)
+    fig.suptitle(f"Decompose-then-split reports {lo:.0f}–{hi:.0f} % lower "
+                 f"error on both benchmarks, with the protocol as the only "
+                 f"difference", x=0.085, ha="left", y=0.972, fontsize=9.4,
                  fontweight="bold")
-    sub = (f"“matched”: the same CEEMDAN (20 trials, K = 8), the same feature "
-           f"layout and the same ridge, fitted over the whole series or "
-           f"recomputed inside each window — the protocol is the only "
-           f"difference, and it accounts for\n{d['leakage_effect_matched_pct']:.1f} %. "
-           f"“original”: the contrast as first run, which also swaps the "
-           f"decomposition family and the fitting scheme and gives "
-           f"{pct:.1f} %; it bounds the effect rather than isolating it."
-           if matched else
-           f"decompose-then-split reports {pct:.1f} % lower error than is "
-           f"attainable causally: the gain is an artefact of the protocol, "
-           f"not of the model")
-    fig.text(0.075, 0.895, sub, fontsize=6.8, color=MUTED, va="top",
-             linespacing=1.6)
+    fig.text(0.085, 0.885,
+             "“matched”: the same CEEMDAN (20 trials, K = 8), the same feature "
+             "layout and the same ridge, fitted over the whole series or "
+             "recomputed inside each input window.\n“original”: the contrast "
+             "as first run, which also swaps the decomposition family and the "
+             "fitting scheme (" + ", ".join(f"{ds} {u:.1f} %"
+                                            for ds, _, u in effects)
+             + ") and therefore bounds the effect rather than isolating it.",
+             fontsize=6.8, color=MUTED, va="top", linespacing=1.6)
     save(fig, os.path.join(FIGURES_DIR, name))
 
 

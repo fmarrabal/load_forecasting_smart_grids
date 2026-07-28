@@ -183,6 +183,10 @@ BASELINES = [
     "GRU_TCN_Attention",
     "DLinear",              # strong linear SOTA baseline
     "PatchTST",             # strong transformer SOTA baseline
+    "TiDE",                 # [V6] covariate-NATIVE baseline: the
+                            # only one that fuses future covariates
+                            # per horizon step rather than through
+                            # the shared conditioning head
 ]
 
 METRICS = ["MAE", "RMSE", "MAPE", "R2", "sMAPE"]

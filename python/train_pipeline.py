@@ -25,7 +25,7 @@ from metrics_stats import compute_metrics
 from model_proposed import CPTB, CausalErrorCorrection, create_proposed
 from models_baselines import (SeasonalNaive, LSTMModel, BiLSTMModel, GRUModel,
                               TCNModel, TransformerModel, CNNLSTMModel,
-                              GRUTCNAttention, DLinear, PatchTST)
+                              GRUTCNAttention, DLinear, PatchTST, TiDE)
 
 
 def set_seed(seed):
@@ -207,6 +207,7 @@ def _make_dl_model(name, data, seed):
         "GRU_TCN_Attention": lambda: GRUTCNAttention(ncp, H, ncf),
         "DLinear": lambda: DLinear(L, H, ncf),
         "PatchTST": lambda: PatchTST(L, H, ncf),
+        "TiDE": lambda: TiDE(L, H, ncp, ncf),
         "Proposed": lambda: create_proposed(cfg, MODEL_PARAMS, DECOMP_PARAMS,
                                             ncp, ncf),
     }
