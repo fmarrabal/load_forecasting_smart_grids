@@ -122,8 +122,18 @@ def fig1_protocol(name="Fig1_protocol_contrast"):
             "future information flows back into every training window",
             ha="center", va="top", fontsize=7.2, color=CRITICAL,
             fontstyle="italic", zorder=6)
+    # the magnitude is read back from the experiment, never typed here
+    from figures_results import read_leakage
+    m = read_leakage()
+    if m is None:
+        raise FileNotFoundError(
+            "results/leakage_GEFCom2014.json not found — run "
+            "`python leakage_demo.py --dataset GEFCom2014` first. The measured "
+            "consequence annotated on this figure is never hardcoded.")
+    a, b = m
+    infl = (b["MAPE"] - a["MAPE"]) / b["MAPE"] * 100
     ax.text(0.012, 0.585, "measured consequence:  apparent accuracy gain of "
-            "+45.9 % that vanishes under a causal protocol", ha="left",
+            f"+{infl:.1f} % that vanishes under a causal protocol", ha="left",
             va="center", fontsize=7.3, color=CRITICAL, fontweight="bold")
 
     ax.plot([0.012, 0.988], [0.520, 0.520], color=GRID, lw=0.8)

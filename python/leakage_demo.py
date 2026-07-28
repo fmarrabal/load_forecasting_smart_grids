@@ -21,9 +21,11 @@ Usage:
     python leakage_demo.py --dataset GEFCom2014 [--max-n 20000]
 """
 import argparse
+import os
+
 import numpy as np
 
-from config import DATASETS
+from config import DATASETS, RESULTS_DIR
 from data_utils import prepare_dataset
 from metrics_stats import compute_metrics
 
@@ -162,9 +164,30 @@ def main():
     infl = (mB["MAPE"] - mA["MAPE"]) / mB["MAPE"] * 100
     print(f"    Apparent (illusory) improvement from leakage: {infl:.1f}%")
 
+    # [round-5 audit] PERSIST the measurement. This experiment produces the
+    # paper's headline leakage figure, and until now it only printed it: the
+    # number reached the manuscript and Fig. 11 as a literal typed by hand.
+    # For a paper whose contribution is a leakage argument, the one controlled
+    # measurement of leakage has to be the one a referee can re-derive from a
+    # released file, so it is written out and the figure reads it back.
+    import json
+    out = {
+        "dataset": args.dataset, "n": int(n),
+        "observed_fraction": float(observed.mean()),
+        "input_window": int(L), "pred_horizon": int(H),
+        "stage1_kernels": list(kernels),
+        "protocol_A_decompose_then_split": {k: float(v) for k, v in mA.items()},
+        "protocol_B_causal": {k: float(v) for k, v in mB.items()},
+        "illusory_improvement_pct": float(infl),
+    }
+    path = os.path.join(RESULTS_DIR, f"leakage_{args.dataset}.json")
+    with open(path, "w") as f:
+        json.dump(out, f, indent=2)
+    print(f"\n  written: {path}")
+
     try:
-        from figures_tables import fig_leakage
-        fig_leakage(mA, mB)
+        import figures_results as FR
+        FR.fig11_leakage(mA, mB)
     except Exception as e:
         print(f"  (figure skipped: {e})")
 

@@ -493,11 +493,37 @@ def fig10_leadtime(preds, name="Fig10_error_by_leadtime"):
 # Fig. 11 — the leakage experiment
 # ═══════════════════════════════════════════════════════════════════════
 
-def fig11_leakage(leaky=None, honest=None, name="Fig11_leakage_effect"):
+def read_leakage(dataset="GEFCom2014"):
+    """The measured protocol-A vs protocol-B result, or None if never run.
+
+    [round-5 audit] This used to be a pair of literal dicts default-argumented
+    into the figure. That made the paper's headline leakage number the ONE
+    figure in the release not derived from a result file — in a paper whose
+    contribution is precisely that hidden, hand-carried numbers are how
+    decomposition hybrids overstate themselves. It is now read back from what
+    leakage_demo.py wrote, and its absence is an error rather than a silent
+    fallback to whatever was typed here last.
+    """
+    path = os.path.join(RESULTS_DIR, f"leakage_{dataset}.json")
+    if not os.path.exists(path):
+        return None
+    with open(path) as f:
+        d = json.load(f)
+    return d["protocol_A_decompose_then_split"], d["protocol_B_causal"]
+
+
+def fig11_leakage(leaky=None, honest=None, name="Fig11_leakage_effect",
+                  dataset="GEFCom2014"):
     """Protocol A (decompose-then-split) vs protocol B (causal), identical
-    learner and splits. Defaults are the measured GEFCom2014 values."""
-    leaky = leaky or {"MAPE": 4.51, "MAE": 7.49, "RMSE": 10.37}
-    honest = honest or {"MAPE": 8.33, "MAE": 14.72, "RMSE": 22.96}
+    learner and splits. Values come from results/leakage_<dataset>.json."""
+    if leaky is None or honest is None:
+        m = read_leakage(dataset)
+        if m is None:
+            raise FileNotFoundError(
+                f"results/leakage_{dataset}.json not found — run "
+                f"`python leakage_demo.py --dataset {dataset}` first. "
+                f"Fig. 11 is never drawn from hardcoded values.")
+        leaky, honest = m
     keys = ["MAPE", "MAE", "RMSE"]
     units = ["%", "MW", "MW"]
 

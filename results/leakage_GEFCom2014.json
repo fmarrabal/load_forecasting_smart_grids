@@ -1,0 +1,27 @@
+{
+  "dataset": "GEFCom2014",
+  "n": 20000,
+  "observed_fraction": 0.89445,
+  "input_window": 168,
+  "pred_horizon": 24,
+  "stage1_kernels": [
+    12,
+    24,
+    168
+  ],
+  "protocol_A_decompose_then_split": {
+    "MAE": 7.490550576659022,
+    "RMSE": 10.374623877988304,
+    "MAPE": 4.510610018912831,
+    "R2": 0.9534573340818606,
+    "sMAPE": 4.48017353829889
+  },
+  "protocol_B_causal": {
+    "MAE": 14.721802368592936,
+    "RMSE": 22.9579786466932,
+    "MAPE": 8.334029166409607,
+    "R2": 0.7720845168851789,
+    "sMAPE": 8.557667606532547
+  },
+  "illusory_improvement_pct": 45.87719902525789
+}
