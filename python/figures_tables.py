@@ -70,18 +70,12 @@ def table_results(summary, ds_name, table_num, dm=None):
             "sMAPE (%)": _fmt(m["sMAPE"], s["sMAPE"]),
             "_sort": m["MAPE"],
         })
-        # [V4.1] seed-ensemble row, shown only for the Proposed model to avoid
-        # doubling the table; every model's ensemble is still computed and the
-        # symmetric ensemble-vs-ensemble DM comparison lives in _dm_ensemble
-        # (round-4 audit: was emitting an -Ens row for every baseline).
-        if "ensemble" in r and name == "Proposed":
-            e = r["ensemble"]
-            rows.append({
-                "Model": name.replace("_", "-") + "-Ens",
-                "MAE": f"{e['MAE']:.2f}", "RMSE": f"{e['RMSE']:.2f}",
-                "MAPE (%)": f"{e['MAPE']:.2f}", "R2": f"{e['R2']:.4f}",
-                "sMAPE (%)": f"{e['sMAPE']:.2f}", "_sort": e["MAPE"],
-            })
+        # [round-5 audit] NO ensemble row here. Earlier versions inserted the
+        # proposed model's five-seed ensemble into this single-seed ranking —
+        # and only its own, no baseline's — which is exactly the comparison
+        # the paper says elsewhere would not be like-for-like, and on PJM and
+        # AEMO it placed the proposal at the top of the table. Every model's
+        # ensemble is ranked against every other in table_ensembles().
     df = pd.DataFrame(rows).sort_values("_sort").drop(columns="_sort")
     df.to_csv(os.path.join(RESULTS_DIR, f"Table{table_num}_{ds_name}.csv"),
               index=False)

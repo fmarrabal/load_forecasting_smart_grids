@@ -482,13 +482,13 @@ def fig10_leadtime(preds, name="Fig10_error_by_leadtime"):
                  y=0.968, fontsize=9.4, fontweight="bold")
     fig.text(0.078, 0.905,
              "Median with interquartile band over every day-ahead forecast "
-             "in the test period. One forecast per day over a one-day "
-             "horizon makes the two panels equivalent\nre-indexings of the "
-             "same numbers, but the three datasets are issued at different "
-             "hours, which separates the effects: the step at each issue "
-             "marker compares\nlead 1 with the full horizon at the same "
-             "clock time and is pure lead time, whereas AEMO's midday hump "
-             "has no counterpart on the other two and is pure time of day.",
+             "in the test period. One forecast per day over a one-day horizon "
+             "makes the two panels equivalent\nre-indexings of the same "
+             "numbers, so neither effect is isolated within a dataset. The "
+             "break at each issue marker separates the end of one forecast "
+             "from the start\nof the next by a single time step on the clock, "
+             "so it is essentially lead time; AEMO's midday hump, absent on "
+             "the other two, is a time-of-day pattern.",
              fontsize=6.7, color=MUTED, linespacing=1.6, va="top")
     save(fig, os.path.join(FIGURES_DIR, name))
 

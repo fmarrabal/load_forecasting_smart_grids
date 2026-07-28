@@ -78,6 +78,80 @@ def protocol_A_decompose_then_split(load, L, H, train_end, val_end,
     return compute_metrics(y_true, y_pred)
 
 
+def _flat_ridge(Xtr, Ytr, Xte):
+    """One ridge over the concatenated components — the SAME learner topology
+    in both arms of the controlled contrast, so that a protocol comparison is
+    not silently also a topology comparison."""
+    from sklearn.linear_model import Ridge
+    m = Ridge(alpha=1.0)
+    m.fit(Xtr, Ytr)
+    return m.predict(Xte)
+
+
+def _ceemdan_fixed_k(sig, K, trials, seed=42):
+    """CEEMDAN truncated/padded to exactly K+1 rows (K IMFs + residual) so that
+    every window yields the same feature width. The residual absorbs whatever
+    is left, so the decomposition still reconstructs the signal exactly."""
+    from PyEMD import CEEMDAN
+    # parallel=False: PyEMD spawns a process pool per call, which on a
+    # 168-point window costs far more than the decomposition itself (and needs
+    # a __main__ guard on Windows).
+    ce = CEEMDAN(trials=trials, epsilon=0.2, parallel=False)
+    ce.noise_seed(seed)
+    sig = np.asarray(sig, dtype=float)
+    imfs = np.atleast_2d(ce(sig, max_imf=K))[:K]
+    out = np.zeros((K + 1, len(sig)))
+    out[:len(imfs)] = imfs
+    out[K] = sig - imfs.sum(axis=0)
+    return out
+
+
+def protocol_A2_global_ceemdan(load, L, H, train_end, val_end, K=8,
+                               observed=None, trials=20, verbose=True):
+    """LEAKY arm of the controlled contrast: CEEMDAN over the FULL series, each
+    window's slice of the components flattened into one feature vector.
+    Identical decomposition family, feature layout and learner to protocol C —
+    the only difference is that the transform saw beyond the issue time."""
+    if verbose:
+        print(f"  [A2] CEEMDAN over the FULL series (n={len(load)}, K={K}) — "
+              "leaky, matched to C in every other respect...")
+    comps = _ceemdan_fixed_k(load, K, trials)
+    test_idx = _issue_indices(len(load), L, H, val_end, len(load), H, observed)
+    train_idx = _issue_indices(len(load), L, H, L, train_end, 4, observed)
+    build = lambda idxs: (
+        np.stack([comps[:, t - L:t].ravel() for t in idxs]),
+        np.stack([load[t:t + H] for t in idxs]))
+    Xtr, Ytr = build(train_idx)
+    Xte, Yte = build(test_idx)
+    return compute_metrics(Yte, _flat_ridge(Xtr, Ytr, Xte))
+
+
+def protocol_C_causal_ceemdan(load, L, H, train_end, val_end, K=8,
+                              observed=None, trials=20, verbose=True):
+    """CAUSAL arm of the controlled contrast: the SAME CEEMDAN, feature layout
+    and learner as A2, but recomputed inside each input window, so it never
+    sees beyond t0.
+
+    [round-5 audit] A2 vs C is the clean protocol effect. The original A vs B
+    contrast is NOT: it also swaps the decomposition family (CEEMDAN vs a
+    3-kernel causal moving average) and the learner topology (per-component
+    ridges summed vs one ridge on concatenated features), so its gap cannot be
+    attributed to leakage alone.
+    """
+    test_idx = _issue_indices(len(load), L, H, val_end, len(load), H, observed)
+    train_idx = _issue_indices(len(load), L, H, L, train_end, 4, observed)
+    if verbose:
+        print(f"  [C] per-window CEEMDAN (K={K}, {len(train_idx)} train / "
+              f"{len(test_idx)} test windows) — this is the slow arm...")
+    def build(idxs):
+        X = np.stack([_ceemdan_fixed_k(load[t - L:t], K, trials).ravel()
+                      for t in idxs])
+        return X, np.stack([load[t:t + H] for t in idxs])
+    Xtr, Ytr = build(train_idx)
+    Xte, Yte = build(test_idx)
+    return compute_metrics(Yte, _flat_ridge(Xtr, Ytr, Xte))
+
+
 def protocol_B_causal(load, L, H, train_end, val_end, kernels=(12, 24, 168),
                       observed=None, verbose=True):
     """Causal protocol: same learner, but per-window causal decomposition
@@ -120,6 +194,14 @@ def main():
     ap.add_argument("--dataset", default="GEFCom2014")
     ap.add_argument("--max-n", type=int, default=20000,
                     help="cap series length to keep CEEMDAN affordable")
+    ap.add_argument("--no-matched", action="store_true",
+                    help="skip the matched A2-vs-C contrast (it recomputes "
+                         "CEEMDAN inside every window and takes ~1 h)")
+    ap.add_argument("--trials", type=int, default=20,
+                    help="CEEMDAN ensemble trials, identical in both arms")
+    ap.add_argument("--K", type=int, default=8,
+                    help="IMFs kept per window (+1 residual) so that every "
+                         "window yields the same feature width")
     args = ap.parse_args()
 
     # Preflight: this standalone entrypoint does not go through main.py's
@@ -156,13 +238,35 @@ def main():
     mB = protocol_B_causal(load, L, H, train_end, val_end, kernels=kernels,
                            observed=observed)
 
-    print("\n  Same learner, same splits — only the decomposition protocol differs:")
+    print("\n  Same splits, same series — the decomposition protocol differs:")
     print(f"    A decompose-then-split : MAPE={mA['MAPE']:.2f}%  "
           f"MAE={mA['MAE']:.2f}  RMSE={mA['RMSE']:.2f}")
     print(f"    B causal (valid)       : MAPE={mB['MAPE']:.2f}%  "
           f"MAE={mB['MAE']:.2f}  RMSE={mB['RMSE']:.2f}")
     infl = (mB["MAPE"] - mA["MAPE"]) / mB["MAPE"] * 100
-    print(f"    Apparent (illusory) improvement from leakage: {infl:.1f}%")
+    print(f"    Apparent (illusory) improvement: {infl:.1f}%")
+    print("    NOTE: A and B differ in decomposition family and learner "
+          "topology as well as\n          in protocol, so this gap is an "
+          "upper bound on the leakage effect. The\n          matched contrast "
+          "below (A2 vs C) isolates the protocol.")
+
+    # ── the matched contrast: identical decomposition, features and learner ──
+    mA2 = mC = infl2 = None
+    if not args.no_matched:
+        mA2 = protocol_A2_global_ceemdan(load, L, H, train_end, val_end,
+                                         K=args.K, observed=observed,
+                                         trials=args.trials)
+        mC = protocol_C_causal_ceemdan(load, L, H, train_end, val_end,
+                                       K=args.K, observed=observed,
+                                       trials=args.trials)
+        infl2 = (mC["MAPE"] - mA2["MAPE"]) / mC["MAPE"] * 100
+        print("\n  MATCHED contrast — same CEEMDAN, same features, same "
+              "learner; only the protocol differs:")
+        print(f"    A2 global CEEMDAN (leaky) : MAPE={mA2['MAPE']:.2f}%  "
+              f"MAE={mA2['MAE']:.2f}  RMSE={mA2['RMSE']:.2f}")
+        print(f"    C  per-window CEEMDAN     : MAPE={mC['MAPE']:.2f}%  "
+              f"MAE={mC['MAE']:.2f}  RMSE={mC['RMSE']:.2f}")
+        print(f"    Leakage effect, isolated  : {infl2:.1f}%")
 
     # [round-5 audit] PERSIST the measurement. This experiment produces the
     # paper's headline leakage figure, and until now it only printed it: the
@@ -180,6 +284,12 @@ def main():
         "protocol_B_causal": {k: float(v) for k, v in mB.items()},
         "illusory_improvement_pct": float(infl),
     }
+    if mA2 is not None:
+        out["ceemdan_trials"] = int(args.trials)
+        out["ceemdan_K"] = int(args.K)
+        out["protocol_A2_global_ceemdan"] = {k: float(v) for k, v in mA2.items()}
+        out["protocol_C_causal_ceemdan"] = {k: float(v) for k, v in mC.items()}
+        out["leakage_effect_matched_pct"] = float(infl2)
     path = os.path.join(RESULTS_DIR, f"leakage_{args.dataset}.json")
     with open(path, "w") as f:
         json.dump(out, f, indent=2)
