@@ -7,7 +7,8 @@ import numpy as np
 from docx import Document
 
 ROOT = r"e:\ARTICULOS-CIENTIFICOS\20260318_load_forecasting_smart_grids"
-DOC = ROOT + r"\AppliedEnergy_Manuscript_v5.docx"
+import os as _o
+DOC = _o.environ.get("STLF_DOCX_OUT", ROOT + r"\AppliedEnergy_Manuscript_v5.docx")
 RES = ROOT + r"\SMART_GRIDS_CODE_V4\results"
 
 saved = json.load(open(RES + r"\summary_v4.json"))
@@ -47,14 +48,30 @@ def chk(label, got, want, tol):
         bad.append(f"{label}: doc {got} vs results {want:.4f}")
 
 doc = Document(DOC)
-T = doc.tables
+
+def _hdr(t):
+    return [c.text.strip() for c in t.rows[0].cells]
+
+# Locate tables by their HEADER, not by position: inserting a table anywhere
+# earlier in the document silently reindexed everything when this was
+# positional, and the checker then compared the wrong table to the wrong data.
+_all = doc.tables
+_res = [t for t in _all if _hdr(t)[:2] == ["Model", "MAE"]]
+_abl = [t for t in _all if _hdr(t)[0] == "Variant"]
+_dm = [t for t in _all if _hdr(t)[0] == "Baseline"]
+_ens = [t for t in _all if _hdr(t)[0] == "Rank"]
+_eff = [t for t in _all if _hdr(t)[:2] == ["Model", "Parameters"]]
+for nm, lst, k in (("result", _res, 3), ("ablation", _abl, 1),
+                   ("DM", _dm, 1), ("ensemble", _ens, 1), ("efficiency", _eff, 1)):
+    assert len(lst) == k, f"expected {k} {nm} table(s), found {len(lst)}"
+T = {"res": _res, "abl": _abl[0], "dm": _dm[0], "ens": _ens[0], "eff": _eff[0]}
 DS = ["GEFCom2014", "PJM", "AEMO"]
 MET = {"MAE": "MAE", "RMSE": "RMSE", "MAPE (%)": "MAPE", "R²": "R2", "sMAPE (%)": "sMAPE"}
 
 # --- Tables 3,4,5 : result tables (docx indices 3,4,5) ---
-for ti, ds in zip([3, 4, 5], DS):
-    hdr = [c.text.strip() for c in T[ti].rows[0].cells]
-    for row in T[ti].rows[1:]:
+for ti, (tb, ds) in enumerate(zip(T["res"], DS)):
+    hdr = _hdr(tb)
+    for row in tb.rows[1:]:
         cells = [c.text.strip() for c in row.cells]
         k = key(cells[0])
         ens = k.endswith("@ENS"); k = k.replace("@ENS", "")
@@ -97,8 +114,8 @@ LBL = {"full (proposed)": "Full (Proposed)",
 ab = {k: v for k, v in abl.items() if not k.startswith("_")}
 def find_ab(label):
     return ab.get(LBL.get(label.strip().lower(), "\0"))
-hdr6 = [c.text.strip() for c in T[6].rows[0].cells]
-for row in T[6].rows[1:]:
+hdr6 = _hdr(T["abl"])
+for row in T["abl"].rows[1:]:
     cells = [c.text.strip() for c in row.cells]
     e = find_ab(cells[0])
     if e is None:
@@ -111,7 +128,7 @@ for row in T[6].rows[1:]:
         chk(f"T6 {cells[0]} {h}", num(cell), mean[m], 0.5 * 10 ** (-dec) + 1e-9)
 
 # --- Table 7 : DM (docx index 7) ---
-for row in T[7].rows[1:]:
+for row in T["dm"].rows[1:]:
     cells = [c.text.strip() for c in row.cells]
     k = key(cells[0])
     for j, ds in enumerate(DS):
@@ -123,7 +140,7 @@ for row in T[7].rows[1:]:
         chk(f"T7 {ds} {cells[0]} DM", got, want, 0.05)
 
 # --- Table 8 : ensembles (docx index 8) ---
-for row in T[8].rows[1:]:
+for row in T["ens"].rows[1:]:
     cells = [c.text.strip() for c in row.cells]
     for j, ds in enumerate(DS):
         name, mape = cells[1 + 2 * j], cells[2 + 2 * j]
@@ -136,7 +153,7 @@ for row in T[8].rows[1:]:
         chk(f"T8 {ds} {name} MAPE", num(mape), ens["MAPE"], 0.005)
 
 # --- Table 9 : efficiency (docx index 9) ---
-for row in T[9].rows[1:]:
+for row in T["eff"].rows[1:]:
     cells = [c.text.strip() for c in row.cells]
     k = key(cells[0])
     if k not in res["GEFCom2014"]: continue
@@ -149,5 +166,6 @@ out = [f"{tot} numeric cells checked across tables 3-9", ""]
 out += ([f"  [X] {b}" for b in bad] if bad else ["  no mismatches"])
 txt = "\n".join(out)
 io.open(SP := r"C:\Users\fmarr\AppData\Local\Temp\claude\e--ARTICULOS-CIENTIFICOS-20260318-load-forecasting-smart-grids\4b26e038-ddeb-4121-8af3-881127a52999\scratchpad\table_check.txt", "w", encoding="utf-8").write(txt)
+sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 print(txt)
 sys.exit(1 if bad else 0)
