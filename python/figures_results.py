@@ -672,9 +672,12 @@ def fig8b_ablation_compare(ablations, name="Fig8b_ablation_compare", tol=0.05):
 
     d0, full0 = deltas(ablations[dss[0]])
     d1, full1 = deltas(ablations[dss[1]])
-    common = [k for k in d0 if k in d1]
-    # order by the covariate-rich benchmark, largest degradation at the bottom
-    common.sort(key=lambda k: d0[k][0])
+    # UNION, not intersection. "w/o covariate skip" exists only where the
+    # covariate path is enabled, and it is the second-largest effect in the
+    # study; taking the intersection dropped it from the figure entirely.
+    # A variant a dataset does not have is marked, not silently omitted.
+    common = list(d0) + [k for k in d1 if k not in d0]
+    common.sort(key=lambda k: d0.get(k, d1.get(k))[0])
     labels = [k.replace("w/o ", "− ").replace("w/ ", "+ ") for k in common]
 
     fig, ax = plt.subplots(figsize=(7.2, 4.0))
@@ -683,11 +686,16 @@ def fig8b_ablation_compare(ablations, name="Fig8b_ablation_compare", tol=0.05):
     h = 0.36
     for off, ds, dd, col in ((+h / 2, dss[0], d0, BLUE),
                              (-h / 2, dss[1], d1, ORANGE)):
-        vals = [dd[k][0] for k in common]
-        errs = [dd[k][1] for k in common]
+        vals = [dd[k][0] if k in dd else 0.0 for k in common]
+        errs = [dd[k][1] if k in dd else 0.0 for k in common]
         ax.barh(y + off, vals, height=h, color=col, zorder=3, label=ds)
         ax.errorbar(vals, y + off, xerr=errs, fmt="none", ecolor=MUTED,
                     elinewidth=0.7, capsize=1.8, zorder=4)
+        for i, k in enumerate(common):
+            if k not in dd:
+                ax.text(0.006, y[i] + off, "not applicable on this benchmark",
+                        va="center", ha="left", fontsize=6.1, color=MUTED,
+                        style="italic", zorder=5)
 
     ax.axvline(0, color=AXIS, lw=0.9, zorder=2)
     ax.set_yticks(y)
@@ -697,7 +705,27 @@ def fig8b_ablation_compare(ablations, name="Fig8b_ablation_compare", tol=0.05):
     ax.tick_params(axis="y", length=0)
     ax.set_xlabel("change in MAPE when the component is removed "
                   "(percentage points, relative to that dataset's full model)")
-    ax.legend(loc="lower right", fontsize=7.4, frameon=False)
+
+    # One effect (removing the future covariates on the covariate-rich
+    # benchmark) is an order of magnitude larger than every other and would
+    # otherwise compress the rest to invisibility. The axis is cut and the
+    # outlier labelled at the break, rather than letting the figure imply the
+    # remaining components are all identically zero.
+    allv = [v[0] for dd in (d0, d1) for v in dd.values()]
+    inner = [v for v in allv if abs(v) < 1.0]
+    hi = max(0.45, max(inner) * 1.35)
+    lo = min(-0.15, min(inner) * 1.45)
+    ax.set_xlim(lo, hi)
+    clipped = []
+    for off, dd in ((+h / 2, d0), (-h / 2, d1)):
+        for i, k in enumerate(common):
+            v = dd.get(k, (0.0,))[0]
+            if v > hi:
+                clipped.append((k, v))
+                ax.text(hi * 0.99, y[i] + off, f"{v:+.2f} pp  ", ha="right",
+                        va="center", fontsize=7.2, color=SURFACE,
+                        fontweight="bold", zorder=6)
+    ax.legend(loc="upper right", fontsize=7.4, frameon=False)
 
     fig.suptitle("The same ablation on a covariate-rich and a univariate "
                  "benchmark", x=0.335, ha="left", y=0.972, fontsize=9.4,
@@ -705,9 +733,13 @@ def fig8b_ablation_compare(ablations, name="Fig8b_ablation_compare", tol=0.05):
     fig.text(0.335, 0.895,
              f"Bars right of zero: removing the component costs accuracy. "
              f"Full model {full0:.2f} % on {dss[0]}, {full1:.2f} % on "
-             f"{dss[1]}; mean ± std over five seeds.\nDifferences below "
-             f"{tol:.2f} pp are within the seed spread and should be read as "
-             f"no measurable effect.",
+             f"{dss[1]}; error bars are the pooled standard deviation over "
+             f"five seeds.
+With five seeds the study resolves effects of "
+             f"roughly 0.2 pp, so only the bars whose length exceeds their "
+             f"own error bar are distinguishable from noise — and neither "
+             f"decomposition stage is among them,
+on either benchmark.",
              fontsize=6.9, color=MUTED, va="top", linespacing=1.6)
     save(fig, os.path.join(FIGURES_DIR, name))
 
