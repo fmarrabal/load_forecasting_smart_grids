@@ -734,12 +734,10 @@ def fig8b_ablation_compare(ablations, name="Fig8b_ablation_compare", tol=0.05):
              f"Bars right of zero: removing the component costs accuracy. "
              f"Full model {full0:.2f} % on {dss[0]}, {full1:.2f} % on "
              f"{dss[1]}; error bars are the pooled standard deviation over "
-             f"five seeds.
-With five seeds the study resolves effects of "
+             f"five seeds.\nWith five seeds the study resolves effects of "
              f"roughly 0.2 pp, so only the bars whose length exceeds their "
              f"own error bar are distinguishable from noise — and neither "
-             f"decomposition stage is among them,
-on either benchmark.",
+             f"decomposition stage is among them,\non either benchmark.",
              fontsize=6.9, color=MUTED, va="top", linespacing=1.6)
     save(fig, os.path.join(FIGURES_DIR, name))
 
