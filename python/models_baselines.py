@@ -242,14 +242,25 @@ class PatchTST(nn.Module):
 # ═══════════════════════════════════════════════════════════════════════
 
 class _ResBlock(nn.Module):
-    """TiDE's residual block: MLP + linear skip + LayerNorm."""
+    """TiDE's residual block: MLP + linear skip, optionally LayerNormed.
 
-    def __init__(self, d_in, d_hidden, d_out, dropout=0.1):
+    `norm=False` matters for the covariate projection. With a LayerNorm on its
+    output the block's SCALE is unobservable to the loss - the norm divides it
+    out - so weight decay drives the projection to zero at no cost, and once it
+    is exactly zero LayerNorm returns zero and the gradient vanishes. That is
+    not a hypothetical: the first trained TiDE here had a covariate projection
+    with pre-norm standard deviation 1.5e-39, so the model ignored the future
+    covariates entirely and its forecast did not change at all when they were
+    zeroed. A covariate-native baseline that cannot see covariates is not a
+    fair comparison, and the failure is silent.
+    """
+
+    def __init__(self, d_in, d_hidden, d_out, dropout=0.1, norm=True):
         super().__init__()
         self.net = nn.Sequential(nn.Linear(d_in, d_hidden), nn.ReLU(),
                                  nn.Linear(d_hidden, d_out), nn.Dropout(dropout))
         self.skip = nn.Linear(d_in, d_out)
-        self.norm = nn.LayerNorm(d_out)
+        self.norm = nn.LayerNorm(d_out) if norm else nn.Identity()
 
     def forward(self, x):
         return self.norm(self.net(x) + self.skip(x))
@@ -277,7 +288,7 @@ class TiDE(nn.Module):
         # per-step covariate projection, shared across past and future steps
         n_cov = max(n_cov_past, n_cov_fut)
         self.n_cov = n_cov
-        self.feat = _ResBlock(n_cov, hidden // 4, r, dropout)
+        self.feat = _ResBlock(n_cov, hidden // 4, r, dropout, norm=False)
         d_in = input_len + (input_len + horizon) * r
         enc = [_ResBlock(d_in, hidden, hidden, dropout)]
         enc += [_ResBlock(hidden, hidden, hidden, dropout) for _ in range(n_enc - 1)]
@@ -285,7 +296,14 @@ class TiDE(nn.Module):
         dec = [_ResBlock(hidden, hidden, hidden, dropout) for _ in range(n_dec - 1)]
         dec += [_ResBlock(hidden, hidden, horizon * p_dec, dropout)]
         self.decoder = nn.Sequential(*dec)
-        self.temporal = _ResBlock(p_dec + r, temp_hidden, 1, dropout)
+        # norm=False is REQUIRED here, not a preference: LayerNorm over a
+        # size-1 output is identically zero ((x-mean)/std with one
+        # element), so with the default this block emitted exact zeros
+        # and the entire encoder-decoder branch of TiDE was dead - the
+        # model reduced to its linear residual from the lookback, which
+        # is why it ignored covariates and scored like a plain linear map.
+        self.temporal = _ResBlock(p_dec + r, temp_hidden, 1, dropout,
+                                  norm=False)
         self.global_res = nn.Linear(input_len, horizon)
 
     def _pad(self, x):

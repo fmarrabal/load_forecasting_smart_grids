@@ -15,6 +15,7 @@ Checks, on random data and on both temporal resolutions:
   6. Gradients are finite through one loss/backward step.
 """
 import numpy as np
+import sys
 import torch
 
 from config import DATASETS, MODEL_PARAMS, DECOMP_PARAMS
@@ -102,5 +103,71 @@ def main():
     print("\nALL CHECKS PASSED")
 
 
+def check_covariate_sensitivity(steps=40):
+    """Every model that is GIVEN future covariates must actually use them.
+
+    [V6] Two silent failures in the TiDE baseline motivated this check. Its
+    temporal decoder ended in a LayerNorm over a SIZE-1 output, which is
+    identically zero, so the whole encoder-decoder branch emitted zeros and the
+    model collapsed to its linear residual from the lookback. Its covariate
+    projection also ended in a LayerNorm, which made the projection's scale
+    unobservable to the loss so weight decay drove it to 1.5e-39. The model
+    trained, converged, and reported plausible numbers while ignoring the
+    covariates completely — it would have entered the paper as a
+    covariate-native baseline that lost.
+
+    Sensitivity is measured AFTER a few optimisation steps, not at
+    initialization: the proposed model and DLinear zero-initialize their
+    covariate branches on purpose so that training starts at the
+    seasonal-naive solution, and an init-time test flags that legitimate design
+    as dead. What must not survive training is a path that cannot come alive.
+    """
+    import torch
+    from config import DATASETS
+    from train_pipeline import _make_dl_model, set_seed
+
+    ds = "GEFCom2014"
+    cfg = DATASETS[ds]
+    L, H, ncp, ncf = cfg["input_window"], cfg["pred_horizon"], 11, 11
+    fake = {"cfg": cfg, "n_cov_past": ncp, "n_cov_fut": ncf, "name": ds}
+    names = ["Proposed", "TiDE", "DLinear", "PatchTST", "LSTM", "GRU", "TCN",
+             "Transformer", "CNN_LSTM", "BiLSTM", "GRU_TCN_Attention"]
+    g = torch.Generator().manual_seed(0)
+    xl = torch.randn(32, L, generator=g)
+    xc = torch.randn(32, L, ncp, generator=g)
+    xf = torch.randn(32, H, ncf, generator=g)
+    # a target that DEPENDS on the future covariates, so a live path has a
+    # reason to learn to use them
+    y = xl[:, -H:] + 2.0 * xf[:, :, 0]
+
+    bad = []
+    for name in names:
+        set_seed(0)
+        m = _make_dl_model(name, fake, 0).cpu().train()
+        opt = torch.optim.Adam(m.parameters(), lr=1e-3)
+        for _ in range(steps):
+            opt.zero_grad()
+            torch.nn.functional.mse_loss(m(xl, xc, xf)[0], y).backward()
+            opt.step()
+        m.eval()
+        with torch.no_grad():
+            a = m(xl, xc, xf)[0]
+            b = m(xl, xc, torch.zeros_like(xf))[0]
+        rel = (a - b).abs().mean().item() / (a.std().item() + 1e-12)
+        ok = rel > 1e-3
+        print(f"  {name:20s} sensitivity after {steps} steps = {rel:8.4f}"
+              f"  {'OK' if ok else 'DEAD'}")
+        if not ok:
+            bad.append(name)
+    if bad:
+        raise SystemExit(f"FAIL: these models cannot use their future "
+                         f"covariates: {bad}")
+    print("  every model responds to its future covariates")
+
+
 if __name__ == "__main__":
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
     main()
+    print("\n-- covariate sensitivity --")
+    check_covariate_sensitivity()
