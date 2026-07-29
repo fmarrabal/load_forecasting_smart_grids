@@ -264,8 +264,15 @@ def run_dl_experiment(name, data, seed, use_ec=False, save_tag=None):
         result["y_pred_ec"] = yp_ec
 
     if save_tag:
+        # [V6] The dataset belongs in the filename. Without it every run
+        # overwrote the previous dataset's weights under the same name, so the
+        # checkpoint Fig. 3 loads was whichever benchmark happened to run last
+        # — caught only because the tensor shapes disagreed. Silent agreement
+        # (two datasets with the same L and H, as GEFCom2014 and PJM have)
+        # would have plotted one benchmark's decomposition as another's.
+        ds = data.get("name") or data["cfg"].get("name", "unknown")
         torch.save(model.state_dict(),
-                   os.path.join(MODELS_DIR, f"{save_tag}_s{seed}.pt"))
+                   os.path.join(MODELS_DIR, f"{save_tag}_{ds}_s{seed}.pt"))
     return result
 
 

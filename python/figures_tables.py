@@ -206,6 +206,19 @@ def table_dm(dm_block, ds_name, table_num=8):
 
 # ═══════════════════ DRIVERS ═══════════════════
 
+def _ablation_map(saved):
+    """All ablations available, keyed by dataset.
+
+    Runs are additive, so more than one benchmark can carry an ablation; the
+    older single-"ablation" field is still honoured so a summary written before
+    that change still loads."""
+    abl = dict(saved.get("ablations") or {})
+    if not abl and saved.get("ablation"):
+        a = saved["ablation"]
+        abl[a.get("_dataset", "GEFCom2014")] = a
+    return abl
+
+
 def _tables(summary, ablation):
     """Every table, in manuscript order. Shared by both drivers so that a
     regeneration from saved results can never emit a different set than the
@@ -220,7 +233,13 @@ def _tables(summary, ablation):
         table_dm(dm, ds)
         table_ensembles(summary[ds], ds)      # like-for-like ensemble ranking
         tno += 1
-    if ablation:
+    if isinstance(ablation, dict) and all(
+            isinstance(v, dict) and "_dataset" not in ablation
+            for v in ablation.values()) and set(ablation) <= {
+                "GEFCom2014", "PJM", "AEMO"}:
+        for ds, a in ablation.items():           # one table per benchmark
+            table_ablation(a, ds_name=ds)
+    elif ablation:
         table_ablation(ablation)
     if summary:                    # guard --ablation-only (empty results)
         first = next(iter(summary))
@@ -244,7 +263,13 @@ def _figures(tag, summary, ablation):
         print(f"  [skip] Fig 3 (causal decomposition): {e}")
     if summary:
         FR.fig4_overview({"results": summary})
-    if ablation:
+    if isinstance(ablation, dict) and set(ablation) <= {"GEFCom2014", "PJM",
+                                                       "AEMO"} and ablation:
+        for _ds, _a in ablation.items():
+            FR.fig8_ablation(_a, name=f"Fig8_ablation_{_ds}"
+                             if len(ablation) > 1 else "Fig8_ablation")
+        FR.fig8b_ablation_compare(ablation)      # no-op with a single dataset
+    elif ablation:
         FR.fig8_ablation(ablation)
 
     pkl = os.path.join(RESULTS_DIR, f"predictions_{tag}.pkl")
@@ -278,6 +303,6 @@ def regenerate_from_saved(tag="v4"):
         return
     with open(path) as f:
         saved = json.load(f)
-    summary, ablation = saved["results"], saved.get("ablation")
+    summary, ablation = saved["results"], _ablation_map(saved)
     _tables(summary, ablation)
     _figures(tag, summary, ablation)

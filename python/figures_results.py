@@ -57,11 +57,17 @@ def fig3_decomposition(name="Fig3_causal_decomposition"):
     cfg = DATASETS["GEFCom2014"]
     model = create_proposed(cfg, MODEL_PARAMS, DECOMP_PARAMS,
                             data["n_cov_past"], data["n_cov_fut"])
-    ck = os.path.join(MODELS_DIR, "Proposed_s42.pt")
+    # Dataset-scoped checkpoint: the un-scoped name used to hold whichever
+    # benchmark ran last, which for two datasets of equal L and H would have
+    # loaded silently and plotted the wrong series' decomposition.
+    ck = os.path.join(MODELS_DIR, f"Proposed_GEFCom2014_s{PRIMARY_SEED}.pt")
     trained = os.path.exists(ck)
     if trained:
         model.load_state_dict(torch.load(ck, map_location="cpu",
                                          weights_only=True))
+    else:
+        print(f"  (no {os.path.basename(ck)}: Fig. 3 shows the untrained "
+              f"filter bank, and says so)")
     model.eval()
 
     te = STLFDataset(data, data["val_end"], len(data["load_z"]),
@@ -630,3 +636,77 @@ if __name__ == "__main__":
     fig9_attention(preds)
     fig10_leadtime(preds)
     fig11_leakage()
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# Fig. 8b — the same ablation on a covariate-rich and a univariate benchmark
+# ═══════════════════════════════════════════════════════════════════════
+
+def fig8b_ablation_compare(ablations, name="Fig8b_ablation_compare", tol=0.05):
+    """Effect of removing each component, on two benchmarks side by side.
+
+    The paper's central claim is that decomposition yields to direct covariate
+    modelling when a strong exogenous driver is present. Until the ablation was
+    run on a univariate benchmark that claim rested on a ranking argument — the
+    same architecture leads PJM and AEMO — which is suggestive but is not an
+    ablation. This figure is the measurement.
+
+    Plotted as the CHANGE in MAPE relative to each dataset's own full model,
+    because the absolute levels differ (4.7 % vs 5.5 %) and a shared absolute
+    axis would compare the difficulty of the benchmarks rather than the
+    contribution of the components. Bars to the right of zero mean removing the
+    component HURTS.
+    """
+    dss = [d for d in ("GEFCom2014", "PJM", "AEMO") if d in ablations]
+    if len(dss) < 2:
+        print(f"  (ablation on {len(dss)} dataset(s), skipping Fig. 8b)")
+        return
+    dss = dss[:2]
+
+    def deltas(a):
+        full = next(v["mean"]["MAPE"] for k, v in a.items()
+                    if k.startswith("Full"))
+        return {k: (v["mean"]["MAPE"] - full, v["std"]["MAPE"])
+                for k, v in a.items()
+                if not k.startswith("_") and not k.startswith("Full")}, full
+
+    d0, full0 = deltas(ablations[dss[0]])
+    d1, full1 = deltas(ablations[dss[1]])
+    common = [k for k in d0 if k in d1]
+    # order by the covariate-rich benchmark, largest degradation at the bottom
+    common.sort(key=lambda k: d0[k][0])
+    labels = [k.replace("w/o ", "− ").replace("w/ ", "+ ") for k in common]
+
+    fig, ax = plt.subplots(figsize=(7.2, 4.0))
+    fig.subplots_adjust(left=0.335, right=0.975, top=0.80, bottom=0.115)
+    y = np.arange(len(common))[::-1]
+    h = 0.36
+    for off, ds, dd, col in ((+h / 2, dss[0], d0, BLUE),
+                             (-h / 2, dss[1], d1, ORANGE)):
+        vals = [dd[k][0] for k in common]
+        errs = [dd[k][1] for k in common]
+        ax.barh(y + off, vals, height=h, color=col, zorder=3, label=ds)
+        ax.errorbar(vals, y + off, xerr=errs, fmt="none", ecolor=MUTED,
+                    elinewidth=0.7, capsize=1.8, zorder=4)
+
+    ax.axvline(0, color=AXIS, lw=0.9, zorder=2)
+    ax.set_yticks(y)
+    ax.set_yticklabels(labels, fontsize=7.4)
+    tidy(ax, ygrid=False, xgrid=True)
+    ax.spines["left"].set_visible(False)
+    ax.tick_params(axis="y", length=0)
+    ax.set_xlabel("change in MAPE when the component is removed "
+                  "(percentage points, relative to that dataset's full model)")
+    ax.legend(loc="lower right", fontsize=7.4, frameon=False)
+
+    fig.suptitle("The same ablation on a covariate-rich and a univariate "
+                 "benchmark", x=0.335, ha="left", y=0.972, fontsize=9.4,
+                 fontweight="bold")
+    fig.text(0.335, 0.895,
+             f"Bars right of zero: removing the component costs accuracy. "
+             f"Full model {full0:.2f} % on {dss[0]}, {full1:.2f} % on "
+             f"{dss[1]}; mean ± std over five seeds.\nDifferences below "
+             f"{tol:.2f} pp are within the seed spread and should be read as "
+             f"no measurable effect.",
+             fontsize=6.9, color=MUTED, va="top", linespacing=1.6)
+    save(fig, os.path.join(FIGURES_DIR, name))
