@@ -244,6 +244,8 @@ def _tables(summary, ablation):
     if summary:                    # guard --ablation-only (empty results)
         first = next(iter(summary))
         table_efficiency(summary[first], first)
+    import figures_results as _FR
+    _FR.table_rolling_origin()      # returns None until it has run
 
 
 def _figures(tag, summary, ablation):
@@ -284,6 +286,7 @@ def _figures(tag, summary, ablation):
     FR.fig9_attention(preds)
     FR.fig10_leadtime(preds)
     FR.fig11_leakage()          # measured values; see leakage_demo.py
+    FR.fig12_rolling_origin()   # no-op until rolling_origin.py has run
 
 
 def generate_all(all_results, ablation=None, tag="v4"):

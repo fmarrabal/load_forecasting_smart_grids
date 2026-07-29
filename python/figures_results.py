@@ -710,3 +710,92 @@ def fig8b_ablation_compare(ablations, name="Fig8b_ablation_compare", tol=0.05):
              f"no measurable effect.",
              fontsize=6.9, color=MUTED, va="top", linespacing=1.6)
     save(fig, os.path.join(FIGURES_DIR, name))
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# Fig. 12 — rolling-origin: is the ranking a property of the test period?
+# ═══════════════════════════════════════════════════════════════════════
+
+def fig12_rolling_origin(name="Fig12_rolling_origin", dataset="PJM"):
+    """MAPE per origin, one line per model.
+
+    Every headline number in the paper rests on a single chronological split,
+    which Section 5.7(ii) lists as a threat to validity. This plots the same
+    models over disjoint test periods so a reader can see directly whether the
+    ordering is a property of the models or of the period that happened to be
+    held out. Lines that cross are the informative case and are not smoothed
+    away.
+    """
+    path = os.path.join(RESULTS_DIR, f"rolling_origin_{dataset}.json")
+    if not os.path.exists(path):
+        print(f"  (no {os.path.basename(path)}, skipping Fig. 12)")
+        return
+    with open(path) as f:
+        d = json.load(f)
+
+    tbl = d["per_origin_MAPE"]
+    origins = d["origins"]
+    n = len(origins)
+    x = np.arange(1, n + 1)
+    order = sorted(tbl, key=lambda m: np.mean(tbl[m]))
+    colors = {m: c for m, c in zip(order, [ORANGE, BLUE, AQUA, VIOLET, MUTED])}
+
+    fig, ax = plt.subplots(figsize=(7.2, 3.5))
+    fig.subplots_adjust(left=0.088, right=0.815, top=0.775, bottom=0.155)
+    for m in order:
+        v = tbl[m]
+        lw = 2.1 if m == "Proposed" else 1.4
+        ax.plot(x, v, "-o", color=colors[m], lw=lw, ms=5,
+                markeredgecolor=SURFACE, markeredgewidth=1.0,
+                zorder=4 if m == "Proposed" else 3)
+        ax.text(x[-1] + 0.08, v[-1], f"  {m}  ({np.mean(v):.2f})",
+                va="center", fontsize=7.2, color=colors[m],
+                fontweight="bold" if m == "Proposed" else "normal")
+
+    tidy(ax)
+    ax.set_xticks(x)
+    ax.set_xticklabels([f"origin {i}\ntest ends {origins[i - 1]['test_end']}"
+                        for i in x], fontsize=7.0)
+    ax.set_xlim(0.6, n + 0.45)
+    ax.set_ylabel("MAPE (%)")
+    ax.tick_params(axis="x", length=0)
+
+    wins = d.get("wins", {})
+    best = max(wins, key=wins.get) if wins else None
+    fig.suptitle(f"Does the ranking survive a change of test period? "
+                 f"({dataset})", x=0.088, ha="left", y=0.968, fontsize=9.4,
+                 fontweight="bold")
+    fig.text(0.088, 0.885,
+             f"{n} disjoint test periods of {d['test_days']} days, each with "
+             f"its own training and validation segments ending before it; "
+             f"mean over seeds {d['seeds']}.\nThe figure in brackets is the "
+             f"mean across origins"
+             + (f"; {best} is first on {wins[best]} of {n} origins."
+                if best else "."),
+             fontsize=6.9, color=MUTED, va="top", linespacing=1.6)
+    save(fig, os.path.join(FIGURES_DIR, name))
+
+
+def table_rolling_origin(dataset="PJM", table_num=11):
+    """Per-origin MAPE plus the mean and the number of origins won."""
+    import pandas as pd
+    path = os.path.join(RESULTS_DIR, f"rolling_origin_{dataset}.json")
+    if not os.path.exists(path):
+        return None
+    with open(path) as f:
+        d = json.load(f)
+    tbl, wins = d["per_origin_MAPE"], d.get("wins", {})
+    rows = []
+    for m in sorted(tbl, key=lambda k: np.mean(tbl[k])):
+        r = {"Model": m.replace("_", "-")}
+        for i, v in enumerate(tbl[m], 1):
+            r[f"Origin {i}"] = f"{v:.2f}"
+        r["Mean"] = f"{np.mean(tbl[m]):.2f}"
+        r["Origins won"] = wins.get(m, 0)
+        rows.append(r)
+    df = pd.DataFrame(rows)
+    out = os.path.join(RESULTS_DIR,
+                       f"Table{table_num}_rolling_origin_{dataset}.csv")
+    df.to_csv(out, index=False)
+    print(df.to_string(index=False))
+    return df
