@@ -8,7 +8,7 @@ from docx import Document
 
 ROOT = r"e:\ARTICULOS-CIENTIFICOS\20260318_load_forecasting_smart_grids"
 import os as _o
-DOC = _o.environ.get("STLF_DOCX_OUT", ROOT + r"\AppliedEnergy_Manuscript_v5.docx")
+DOC = _o.environ.get("STLF_DOCX_OUT", ROOT + r"\AppliedEnergy_Manuscript_v6.docx")
 RES = ROOT + r"\SMART_GRIDS_CODE_V4\results"
 
 saved = json.load(open(RES + r"\summary_v4.json"))
@@ -61,10 +61,10 @@ _abl = [t for t in _all if _hdr(t)[0] == "Variant"]
 _dm = [t for t in _all if _hdr(t)[0] == "Baseline"]
 _ens = [t for t in _all if _hdr(t)[0] == "Rank"]
 _eff = [t for t in _all if _hdr(t)[:2] == ["Model", "Parameters"]]
-for nm, lst, k in (("result", _res, 3), ("ablation", _abl, 1),
+for nm, lst, k in (("result", _res, 3), ("ablation", _abl, len(_abl)),
                    ("DM", _dm, 1), ("ensemble", _ens, 1), ("efficiency", _eff, 1)):
     assert len(lst) == k, f"expected {k} {nm} table(s), found {len(lst)}"
-T = {"res": _res, "abl": _abl[0], "dm": _dm[0], "ens": _ens[0], "eff": _eff[0]}
+T = {"res": _res, "abl": _abl[0], "abls": _abl, "dm": _dm[0], "ens": _ens[0], "eff": _eff[0]}
 DS = ["GEFCom2014", "PJM", "AEMO"]
 MET = {"MAE": "MAE", "RMSE": "RMSE", "MAPE (%)": "MAPE", "R²": "R2", "sMAPE (%)": "sMAPE"}
 
@@ -114,18 +114,24 @@ LBL = {"full (proposed)": "Full (Proposed)",
 ab = {k: v for k, v in abl.items() if not k.startswith("_")}
 def find_ab(label):
     return ab.get(LBL.get(label.strip().lower(), "\0"))
-hdr6 = _hdr(T["abl"])
-for row in T["abl"].rows[1:]:
+_ABL_DS = ["GEFCom2014", "AEMO", "PJM"]       # document order
+for _ai, _tb in enumerate(T["abls"]):
+  ab = {k: v for k, v in (saved.get("ablations") or {}).get(
+        _ABL_DS[_ai], abl).items() if not k.startswith("_")}
+  hdr6 = _hdr(_tb)
+  for row in _tb.rows[1:]:
     cells = [c.text.strip() for c in row.cells]
     e = find_ab(cells[0])
     if e is None:
-        bad.append(f"T6: ablation variant '{cells[0]}' not found in results"); continue
+        bad.append(f"T6[{_ABL_DS[_ai]}]: variant '{cells[0]}' not in results")
+        continue
     mean = e.get("mean", e)
     for h, cell in zip(hdr6[1:], cells[1:]):
         m = MET.get(h)
         if not m or m not in mean: continue
         dec = len((cell.split("±")[0].strip().split(".") + [""])[1])
-        chk(f"T6 {cells[0]} {h}", num(cell), mean[m], 0.5 * 10 ** (-dec) + 1e-9)
+        chk(f"T6[{_ABL_DS[_ai]}] {cells[0]} {h}", num(cell), mean[m],
+            0.5 * 10 ** (-dec) + 1e-9)
 
 # --- Table 7 : DM (docx index 7) ---
 for row in T["dm"].rows[1:]:
