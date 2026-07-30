@@ -21,7 +21,9 @@ ALIAS = {"Proposed (CPTB)": "Proposed", "Proposed-Ens (CPTB)": "Proposed@ENS",
          "GRU-TCN-Att.": "GRU_TCN_Attention", "CNN-LSTM": "CNN_LSTM"}
 
 def key(name):
-    n = name.strip().replace("-Ens", "@ENS")
+    # the tables carry DM significance marks in the model name; they are
+    # presentational and must come off before the results lookup
+    n = name.strip().rstrip("*").strip().replace("-Ens", "@ENS")
     base = n.replace("@ENS", "")
     base = ALIAS.get(base, ALIAS.get(name.strip(), base.replace("-", "_")))
     return base + ("@ENS" if "@ENS" in n else "")
