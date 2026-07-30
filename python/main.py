@@ -336,11 +336,23 @@ def save_all(all_results, ablation, tag="v4"):
         except Exception as e:
             print(f"  (existing predictions unreadable, starting fresh: {e})")
     for ds, block in all_results.items():
-        slim[ds] = {}
+        # Model-level merge here too. The summary was fixed for this and the
+        # pickle was not, so a `--models TiDE` run kept every model's summary
+        # row and deleted every model's PREDICTIONS — which are what Figs. 5-7,
+        # 9 and 10 are drawn from. One incomplete fix is worse than none,
+        # because the surviving summary made the loss look impossible.
+        slim.setdefault(ds, {})
         for name, r in block["results"].items():
             p0 = r["per_seed"][0]
             slim[ds][name] = {k: p0.get(k) for k in
                               ("y_pred", "y_true", "issue_idx", "attn")}
+            # [V6] ALL seeds' forecasts, not just the primary one. The
+            # five-seed Diebold-Mariano test needs every seed's loss profile,
+            # and storing only seed 42 meant that adding one baseline later
+            # forced a full retrain of the proposed model just to obtain the
+            # comparison - which perturbed its own metrics each time.
+            slim[ds][name]["y_pred_all"] = np.stack(
+                [s["y_pred"] for s in r["per_seed"] if "y_pred" in s])                 if all("y_pred" in s for s in r["per_seed"]) else None
         if block.get("clock"):
             slim[ds]["_clock"] = block["clock"]     # needed by Fig. 10
     with open(pkl_path, "wb") as f:
