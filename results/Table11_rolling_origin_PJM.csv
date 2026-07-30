@@ -1,0 +1,4 @@
+Model,Origin 1,Origin 2,Origin 3,Mean,Origins won
+Proposed,4.15,3.74,4.40,4.10,3
+PatchTST,4.37,4.09,4.52,4.33,0
+DLinear,4.49,4.04,4.52,4.35,0

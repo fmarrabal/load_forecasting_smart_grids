@@ -778,11 +778,26 @@ def fig12_rolling_origin(name="Fig12_rolling_origin", dataset="PJM"):
         ax.plot(x, v, "-o", color=colors[m], lw=lw, ms=5,
                 markeredgecolor=SURFACE, markeredgewidth=1.0,
                 zorder=4 if m == "Proposed" else 3)
-        ax.text(x[-1] + 0.08, v[-1], f"  {m}  ({np.mean(v):.2f})",
-                va="center", fontsize=7.2, color=colors[m],
-                fontweight="bold" if m == "Proposed" else "normal")
 
     tidy(ax)
+    # End labels, pushed apart where models finish close together: two models
+    # within 0.05 pp at the last origin would otherwise print on top of each
+    # other, which is exactly where the reader looks to compare them.
+    span = max(max(v) for v in tbl.values()) - min(min(v) for v in tbl.values())
+    gap = 0.075 * max(span, 1e-9)
+    placed = []
+    for m in sorted(order, key=lambda k: tbl[k][-1]):
+        yv = tbl[m][-1]
+        while any(abs(yv - q) < gap for q in placed):
+            yv += gap - (yv - min(q for q in placed if abs(yv - q) < gap))
+        placed.append(yv)
+        ax.annotate(f"  {m}  ({np.mean(tbl[m]):.2f})",
+                    xy=(x[-1], tbl[m][-1]), xytext=(x[-1] + 0.10, yv),
+                    va="center", fontsize=7.2, color=colors[m],
+                    fontweight="bold" if m == "Proposed" else "normal",
+                    arrowprops=dict(arrowstyle="-", color=colors[m], lw=0.5,
+                                    shrinkA=1, shrinkB=1)
+                    if abs(yv - tbl[m][-1]) > gap * 0.4 else None)
     ax.set_xticks(x)
     ax.set_xticklabels([f"origin {i}\ntest ends {origins[i - 1]['test_end']}"
                         for i in x], fontsize=7.0)
