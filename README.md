@@ -81,9 +81,14 @@ GEFCom2014 (4.27 vs 3.70 for TCN).
 
 **No baseline outperforms the proposed model at the Holm-corrected 5 % level on
 any benchmark** — read as statistical parity at n = 259/902/274, not as
-demonstrated equality. On a rolling-origin evaluation over three disjoint PJM
-test periods it is first on all three (mean 4.10 vs 4.33 for PatchTST), though
-the spread *between periods* (~0.7 pp) is several times the spread between models.
+demonstrated equality. The model confidence set (Hansen–Lunde–Nason, 
+`python/model_confidence_set.py`, `results/mcs_v4.json`) says the same thing
+set-wise: the proposed model is in the 90 % MCS on every benchmark under both
+losses; on PJM under absolute loss that set contains only the proposed model,
+PatchTST and TiDE. On a rolling-origin evaluation over three disjoint PJM test
+periods it is first on all three by MAPE (mean 4.10 vs 4.33 for PatchTST),
+though no per-period test is individually significant and the spread *between
+periods* (~0.7 pp) is several times the spread between models.
 
 > An earlier version of this repository claimed the decomposition was
 > load-bearing on univariate load — "the mirror image of the univariate case".
@@ -107,6 +112,8 @@ the spread *between periods* (~0.7 pp) is several times the spread between model
 │   ├── figures_diagrams.py     Figs 1–2 (protocol contrast, architecture)
 │   ├── figures_results.py      Figs 3–12, all computed from saved result files
 │   ├── leakage_demo.py         the controlled decompose-then-split leakage experiment
+│   ├── model_confidence_set.py Hansen–Lunde–Nason MCS over the saved forecasts
+│   ├── build_latex_tables.py   every table of the manuscript, printed from results/
 │   └── verify_cptb.py          machine-checked causality / reconstruction certificate
 ├── matlab/        Independent MATLAB port (Deep Learning Toolbox), verified in parity
 ├── results/       Result tables (CSV + LaTeX) and JSON summaries
