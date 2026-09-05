@@ -210,6 +210,13 @@ South Wales (half-hourly).
 
 Corresponding author: Francisco M. Arrabal-Campos (fmarrabal@ual.es).
 
+## Funding
+
+This work was supported by the Spanish Ministry of Science and Innovation (grants
+PDC2021-121248-I00, PLEC2021-007774, PID2021-126445OB-I00 and CPP2022-009967) and by
+the Gobierno de España MCIN/AEI/[10.13039/501100011033](https://doi.org/10.13039/501100011033)
+and Unión Europea Next Generation EU/PRTR.
+
 ## License
 
 Released under the [MIT License](LICENSE).

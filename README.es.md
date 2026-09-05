@@ -217,6 +217,13 @@ Interconnection East (horario) y AEMO Nueva Gales del Sur (semihorario).
 
 Autor de correspondencia: Francisco M. Arrabal-Campos (fmarrabal@ual.es).
 
+## Financiación
+
+Este trabajo ha sido financiado por el Ministerio de Ciencia e Innovación (proyectos
+PDC2021-121248-I00, PLEC2021-007774, PID2021-126445OB-I00 y CPP2022-009967) y por el
+Gobierno de España MCIN/AEI/[10.13039/501100011033](https://doi.org/10.13039/501100011033)
+y la Unión Europea Next Generation EU/PRTR.
+
 ## Licencia
 
 Publicado bajo la [licencia MIT](LICENSE).
