@@ -1,14 +1,16 @@
 # Leakage, not decomposition: auditing decompose-then-split hybrids for short-term load forecasting
 
+**English** · [Español](README.es.md)
+
 Code and results for an **audit** of decomposition-based short-term load
 forecasting (STLF). Two findings: the decompose-then-split protocol that dominates
 this literature inflates reported accuracy by roughly half, and once that leak is
 closed the decomposition machinery does no measurable work. Released in **PyTorch
 and MATLAB** with a machine-checked causality certificate and a five-seed,
-significance-tested protocol.
+significance-tested protocol. The manuscript is under review at *Applied Energy*.
 
 <p align="center">
-  <img src="figures/Fig11_leakage_effect.png" width="88%" alt="The same learner and splits under a leaky and a causal decomposition protocol"/>
+  <img src="figures/graphical_abstract.png" width="100%" alt="Graphical abstract: the protocol inflates accuracy by half; a causal analogue permits an ablation; the decomposition is inert"/>
 </p>
 <p align="center">
   <img src="figures/Fig4_accuracy_overview.png" width="88%" alt="Day-ahead accuracy across the three benchmarks"/>
@@ -114,7 +116,9 @@ periods* (~0.7 pp) is several times the spread between models.
 │   ├── leakage_demo.py         the controlled decompose-then-split leakage experiment
 │   ├── model_confidence_set.py Hansen–Lunde–Nason MCS over the saved forecasts
 │   ├── build_latex_tables.py   every table of the manuscript, printed from results/
-│   └── verify_cptb.py          machine-checked causality / reconstruction certificate
+│   ├── graphical_abstract.py   the graphical abstract, drawn from results/
+│   ├── verify_cptb.py          machine-checked causality / reconstruction certificate
+│   └── scripts/                experiment drivers (rolling origin, validation-only selection, TiDE re-run)
 ├── matlab/        Independent MATLAB port (Deep Learning Toolbox), verified in parity
 ├── results/       Result tables (CSV + LaTeX) and JSON summaries
 ├── figures/       Publication figures (PDF + 300-dpi PNG)
@@ -193,15 +197,18 @@ South Wales (half-hourly).
 ## Citation
 
 ```bibtex
-@article{ArrabalCampos_STLF,
-  author  = {Arrabal-Campos, Francisco M.},
-  title   = {Adaptive dual-stage signal decomposition and Patch Transformer--BiGRU
-             with cross-attention for short-term load forecasting in smart grids},
+@article{Valdivieso2026leakage,
+  author  = {Valdivieso, V{\'i}ctor and L{\'o}pez-Lao, Emilio and Garc{\'i}a-Chica, Antonio
+             and Cama-Pinto, Alejandro and Arrabal-Campos, Francisco M.},
+  title   = {Leakage, not decomposition: auditing decompose-then-split hybrids
+             for short-term load forecasting},
   journal = {Applied Energy},
   note    = {Under review},
   year    = {2026}
 }
 ```
+
+Corresponding author: Francisco M. Arrabal-Campos (fmarrabal@ual.es).
 
 ## License
 

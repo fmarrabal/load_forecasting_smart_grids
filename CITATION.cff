@@ -1,13 +1,27 @@
 cff-version: 1.2.0
-message: "If you use this software, please cite it as below."
-title: "Adaptive dual-stage signal decomposition and Patch Transformer–BiGRU with cross-attention for short-term load forecasting in smart grids"
+message: "If you use this software, please cite the paper below."
+title: "Leakage, not decomposition: auditing decompose-then-split hybrids for short-term load forecasting"
+type: software
 authors:
+  - family-names: "Valdivieso"
+    given-names: "Víctor"
+    affiliation: "CIAIMBITAL Research Centre, Department of Engineering, Universidad de Almería"
+  - family-names: "López-Lao"
+    given-names: "Emilio"
+    affiliation: "CIAIMBITAL Research Centre, Department of Engineering, Universidad de Almería"
+  - family-names: "García-Chica"
+    given-names: "Antonio"
+    affiliation: "Department of Mechanical and Mining Engineering, Universidad de Jaén"
+  - family-names: "Cama-Pinto"
+    given-names: "Alejandro"
+    affiliation: "Department of Computer Science and Electronics, Universidad de la Costa"
   - family-names: "Arrabal-Campos"
     given-names: "Francisco M."
-    affiliation: "CIAIMBITAL Research Centre, Universidad de Almería"
+    affiliation: "CIAIMBITAL Research Centre, Department of Engineering, Universidad de Almería"
     email: "fmarrabal@ual.es"
+repository-code: "https://github.com/fmarrabal/load_forecasting_smart_grids"
 license: MIT
-date-released: "2026-07-25"
+date-released: "2026-09-05"
 keywords:
   - short-term load forecasting
   - smart grid
@@ -16,3 +30,20 @@ keywords:
   - Patch Transformer
   - cross-attention
   - Diebold-Mariano test
+preferred-citation:
+  type: article
+  title: "Leakage, not decomposition: auditing decompose-then-split hybrids for short-term load forecasting"
+  journal: "Applied Energy"
+  year: 2026
+  notes: "Under review"
+  authors:
+    - family-names: "Valdivieso"
+      given-names: "Víctor"
+    - family-names: "López-Lao"
+      given-names: "Emilio"
+    - family-names: "García-Chica"
+      given-names: "Antonio"
+    - family-names: "Cama-Pinto"
+      given-names: "Alejandro"
+    - family-names: "Arrabal-Campos"
+      given-names: "Francisco M."
