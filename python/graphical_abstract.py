@@ -20,10 +20,12 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 CODE = os.path.dirname(HERE)
 ROOT = os.path.dirname(CODE)
 RESULTS = os.path.join(CODE, "results")
-# manuscript layout (scripts/ next to the code): write into latex/figures;
-# public repository layout (python/ next to results/ and figures/): write into figures/
-_OUT_DIR = next(d for d in (os.path.join(ROOT, "latex", "figures"),
-                            os.path.join(CODE, "figures")) if os.path.isdir(d))
+# manuscript layout (this file under scripts/): write into <project>/latex/figures;
+# public repository layout (this file under python/): write into <repo>/figures
+if os.path.basename(HERE) == "scripts":
+    _OUT_DIR = os.path.join(ROOT, "latex", "figures")
+else:
+    _OUT_DIR = os.path.join(CODE, "figures")
 OUT = os.path.join(_OUT_DIR, "graphical_abstract")
 sys.path[:0] = [CODE, HERE]  # figstyle lives next to the code in both layouts
 
