@@ -7,7 +7,7 @@ This draws 13.5 x 5.4 cm at 300 dpi (1594 x 638 px, exact canvas) with the
 paper's shared figure style and reads every number from the result files:
 
   * panel 1 from results/leakage_{GEFCom2014,PJM}.json (matched contrast A2 vs C),
-  * panel 3 from results/Table6_ablation_{GEFCom2014,AEMO}.csv.
+  * panel 3 from the ablations in results/summary_v4.json (unrounded means).
 
     python scripts/graphical_abstract.py   ->  latex/figures/graphical_abstract.{pdf,png,tif}
 """
@@ -53,11 +53,13 @@ def leak(ds):
 
 
 def ablation(ds):
-    with open(os.path.join(RESULTS, f"Table6_ablation_{ds}.csv"), encoding="utf-8") as f:
-        rows = list(csv.reader(f))
-    mape = {r[0]: float(r[3].split("±")[0]) for r in rows[1:]}
-    full = mape["Full (Proposed)"]
-    return {k: v - full for k, v in mape.items()}
+    """Change in MAPE from the unrounded five-seed means in summary_v4.json,
+    the same source the ablation figure and the manuscript table use."""
+    with open(os.path.join(RESULTS, "summary_v4.json"), encoding="utf-8") as f:
+        a = json.load(f)["ablations"][ds]
+    full = a["Full (Proposed)"]["mean"]["MAPE"]
+    return {k: v["mean"]["MAPE"] - full for k, v in a.items()
+            if isinstance(v, dict) and "mean" in v}
 
 
 def box(ax, xy, w, h, text, fill, edge, size=5.4, weight="normal"):

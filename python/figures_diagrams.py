@@ -132,8 +132,8 @@ def fig1_protocol(name="Fig1_protocol_contrast"):
             "consequence annotated on this figure is never hardcoded.")
     # prefer the MATCHED contrast, which varies the protocol and nothing else
     infl = m.get("leakage_effect_matched_pct", m["illusory_improvement_pct"])
-    ax.text(0.012, 0.585, "measured consequence:  apparent accuracy gain of "
-            f"+{infl:.1f} % that vanishes under a causal protocol", ha="left",
+    ax.text(0.012, 0.585, "measured consequence:  an apparent error reduction of "
+            f"{infl:.1f} % that vanishes under a causal protocol", ha="left",
             va="center", fontsize=7.3, color=CRITICAL, fontweight="bold")
 
     ax.plot([0.012, 0.988], [0.520, 0.520], color=GRID, lw=0.8)
@@ -292,7 +292,7 @@ def fig2_architecture(name="Fig2_architecture"):
     # [round-5 audit] this used to read "enabled where temperature exists" —
     # the very rule §3.7 identifies as selection leakage and replaces
     ax.text(x2 + wc + 0.008, 0.651, "enabled by\nthe validation\nrule of "
-            "Eq. (6)", ha="left", va="center", fontsize=6.3, color=MUTED,
+            "Eq. (7)", ha="left", va="center", fontsize=6.3, color=MUTED,
             linespacing=1.35)
 
     box(ax, x2, 0.452, wc, H3, "Per-component linear base",

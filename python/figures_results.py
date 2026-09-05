@@ -281,7 +281,8 @@ def fig4_overview(summary, name="Fig4_accuracy_overview"):
     fig.text(0.105, 0.885, "leading models per benchmark on a shared scale, "
              "with the proposed model always shown; on GEFCom2014 it is "
              "mid-table by point error, yet no baseline beats it "
-             "significantly (Table 8)", fontsize=7.0, color=MUTED)
+             "significantly under the Holm-corrected Diebold–Mariano test",
+             fontsize=7.0, color=MUTED)
     save(fig, os.path.join(FIGURES_DIR, name))
 
 
@@ -678,7 +679,13 @@ def fig8b_ablation_compare(ablations, name="Fig8b_ablation_compare", tol=0.05):
     # A variant a dataset does not have is marked, not silently omitted.
     common = list(d0) + [k for k in d1 if k not in d0]
     common.sort(key=lambda k: d0.get(k, d1.get(k))[0])
+    # the internal variant names say "skip"; the paper calls these components
+    # the per-component linear base and the full-resolution covariate path
+    _pretty = {"linear skip": "per-component linear base",
+               "covariate skip": "full-resolution covariate path"}
     labels = [k.replace("w/o ", "− ").replace("w/ ", "+ ") for k in common]
+    labels = [next((lab.replace(a, b) for a, b in _pretty.items() if a in lab), lab)
+              for lab in labels]
 
     fig, ax = plt.subplots(figsize=(7.2, 4.0))
     fig.subplots_adjust(left=0.335, right=0.975, top=0.80, bottom=0.115)

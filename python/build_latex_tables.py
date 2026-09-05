@@ -138,12 +138,15 @@ ABL_ORDER = [
 ]
 
 
-def ablation_table(out):
+def ablation_table(out, summary):
     data = {}
     for ds, fn in (("GEFCom2014", "Table6_ablation_GEFCom2014.csv"),
                    ("AEMO", "Table6_ablation_AEMO.csv")):
         hdr, rows = read_csv(os.path.join(RESULTS, fn))
         data[ds] = {r[0]: [split_pm(c) for c in r[1:]] for r in rows}
+    # the contrast is computed from the unrounded five-seed means and spreads,
+    # so that it agrees with the figures, which read the same file
+    raw = summary["ablations"]
     n_seeds = 5
     lines, resolved = [], {}
     for key, label in ABL_ORDER:
@@ -158,8 +161,10 @@ def ablation_table(out):
             if key == "Full (Proposed)":
                 cells += [mape, "---"]
                 continue
-            d = fnum(m) - fnum(full[0])
-            se = ((fnum(s) ** 2 + fnum(full[1]) ** 2) / n_seeds) ** 0.5
+            rm, rs = raw[ds][key]["mean"]["MAPE"], raw[ds][key]["std"]["MAPE"]
+            fm, fstd = raw[ds]["Full (Proposed)"]["mean"]["MAPE"], raw[ds]["Full (Proposed)"]["std"]["MAPE"]
+            d = rm - fm
+            se = ((rs ** 2 + fstd ** 2) / n_seeds) ** 0.5
             res = abs(d) >= 2 * se
             resolved[(ds, key)] = (d, se, res)
             dtxt = f"{signed(d)} $\\pm$ {se:.2f}"
@@ -497,7 +502,7 @@ def main():
     with open(os.path.join(RESULTS, "summary_v4.json"), encoding="utf-8") as f:
         summary = json.load(f)
     results_tables(a.out)
-    ablation_table(a.out)
+    ablation_table(a.out, summary)
     dm_table(a.out, summary)
     ensemble_table(a.out, summary)
     efficiency_table(a.out)
